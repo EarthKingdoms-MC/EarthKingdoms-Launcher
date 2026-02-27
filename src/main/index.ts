@@ -3,6 +3,7 @@ import { join }    from 'path'
 import { store }   from './store'
 import { login, logout, getAccount } from './auth'
 import { startLaunch, stopLaunch, isRunning } from './launcherCore'
+import { autoUpdater } from 'electron-updater'
 import type { Account } from './store'
 
 let mainWindow: BrowserWindow | null = null
@@ -39,6 +40,18 @@ app.whenReady().then(() => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
+
+  // Auto-update — uniquement dans l'app packagée (pas en dev)
+  if (app.isPackaged) {
+    autoUpdater.checkForUpdatesAndNotify()
+
+    autoUpdater.on('update-available', () => {
+      mainWindow?.webContents.send('update:available')
+    })
+    autoUpdater.on('update-downloaded', () => {
+      mainWindow?.webContents.send('update:ready')
+    })
+  }
 })
 
 app.on('window-all-closed', () => {
@@ -199,4 +212,9 @@ ipcMain.handle('mods:getEnabled', () => {
 
 ipcMain.handle('mods:setEnabled', (_e, paths: string[]) => {
   store.set('enabledOptionalMods', paths)
+})
+
+// ── Auto-update ───────────────────────────────────────────────────────────────
+ipcMain.on('update:install', () => {
+  autoUpdater.quitAndInstall()
 })

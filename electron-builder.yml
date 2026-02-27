@@ -1,5 +1,10 @@
 appId: com.earthkingdoms.launcher
 productName: EarthKingdoms
+publish:
+  provider: github
+  owner: EarthKingdoms-MC
+  repo: EarthKingdoms-Launcher
+  releaseType: release
 directories:
   buildResources: build
   output: dist

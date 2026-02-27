@@ -10,18 +10,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: windows-latest
-            artifact: dist/*.exe
-          - os: macos-latest
-            artifact: dist/*.dmg
-          - os: ubuntu-latest
-            artifact: dist/*.AppImage
+        os: [windows-latest, macos-latest, ubuntu-latest]
 
     runs-on: ${{ matrix.os }}
 
     permissions:
-      contents: write   # nécessaire pour créer la release
+      contents: write
 
     steps:
       - name: Checkout
@@ -40,21 +34,7 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build
-        run: npm run package
-
-      - name: Get version
-        id: version
-        shell: bash
-        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
-
-      - name: Create Release & upload artifact
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ steps.version.outputs.version }}
-          name: EarthKingdoms Launcher v${{ steps.version.outputs.version }}
-          draft: false
-          prerelease: false
-          files: ${{ matrix.artifact }}
+      - name: Build & Publish
+        run: npm run package:release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

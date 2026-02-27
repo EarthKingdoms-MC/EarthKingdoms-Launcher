@@ -1,6 +1,6 @@
 {
   "name": "earthkingdoms-launcher",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "EarthKingdoms Minecraft Launcher",
   "author": {
     "name": "EarthKingdoms",
@@ -11,6 +11,7 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "package": "electron-vite build && electron-builder --publish never",
+    "package:release": "electron-vite build && electron-builder --publish always",
     "preview": "electron-vite preview"
   },
   "dependencies": {
