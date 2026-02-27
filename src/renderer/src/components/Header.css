@@ -8,7 +8,7 @@
   padding: 0 10px 0 20px;
   flex-shrink: 0;
   gap: 8px;
-  -webkit-app-region: no-drag;
+  -webkit-app-region: drag;
   z-index: 100;
 }
 /* Ligne orange très subtile en bas du header */
@@ -71,7 +71,7 @@
 }
 
 /* ── Navigation ─────────────────────────────────────── */
-.header__nav { display: flex; gap: 2px; flex: 1; }
+.header__nav { display: flex; gap: 2px; flex: 1; -webkit-app-region: no-drag; }
 
 .header__nav-btn {
   position: relative;
@@ -112,7 +112,7 @@
 }
 
 /* ── Actions droite ─────────────────────────────────── */
-.header__actions { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.header__actions { display: flex; align-items: center; gap: 10px; margin-left: auto; -webkit-app-region: no-drag; }
 
 /* Profil + tête skin */
 .header__profile {
