@@ -10,6 +10,7 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()]
   },
   renderer: {
+    base: './',                     // chemins relatifs dans le build → compatible file:// Electron
     plugins: [react()],
     publicDir: resolve('public'),   // sert launcher/public/ à la racine (background.png, icons…)
     resolve: {
