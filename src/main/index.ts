@@ -44,7 +44,7 @@ app.whenReady().then(() => {
   // Quand téléchargé → redémarre l'app pour appliquer
   if (app.isPackaged) {
     autoUpdater.on('update-downloaded', () => {
-      autoUpdater.quitAndInstall(false, true)
+      autoUpdater.quitAndInstall(true, true)
     })
   }
 })
