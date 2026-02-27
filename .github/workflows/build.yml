@@ -3,12 +3,13 @@ name: Build
 on:
   push:
     tags:
-      - 'v*'          # déclenche sur v1.0.0, v1.2.3, etc.
-  workflow_dispatch:  # permet de lancer manuellement depuis GitHub
+      - 'v*'
+  workflow_dispatch:
 
 jobs:
   build:
     strategy:
+      fail-fast: false   # si un OS échoue, les autres continuent
       matrix:
         include:
           - os: windows-latest
@@ -29,6 +30,12 @@ jobs:
         with:
           node-version: 20
           cache: npm
+
+      - name: Install Linux dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm fakeroot dpkg
 
       - name: Install dependencies
         run: npm install
