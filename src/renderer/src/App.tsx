@@ -11,7 +11,7 @@ import { Account } from './hooks/useSkin'
 
 export type Page = 'home' | 'settings' | 'logs' | 'mods'
 
-type AppState = 'loading' | 'login' | 'app'
+type AppState = 'loading' | 'updating' | 'login' | 'app'
 
 export default function App() {
   const [appState,      setAppState]      = useState<AppState>('loading')
@@ -20,9 +20,20 @@ export default function App() {
   const [showSkinModal, setShowSkinModal] = useState(false)
   const [ram,           setRam]           = useState(4)
 
-  // Initialisation : récupère le compte persisté + la RAM depuis electron-store
+  // Initialisation : vérifie d'abord les mises à jour, puis charge le compte
   useEffect(() => {
     async function init() {
+      // 1. Vérification de mise à jour (bloquante, max 8s) — min 1.5s pour que l'écran soit visible
+      const [{ available }] = await Promise.all([
+        (window.api as any).updateCheck() as Promise<{ available: boolean }>,
+        new Promise(r => setTimeout(r, 1500)),
+      ])
+      if (available) {
+        setAppState('updating')
+        return  // L'app redémarre automatiquement quand le téléchargement est terminé
+      }
+
+      // 2. Init normale
       const storedRam = await window.api.storeGet('ram')
       if (typeof storedRam === 'number') setRam(storedRam)
 
@@ -54,18 +65,23 @@ export default function App() {
   }
 
   // Écran de chargement initial
-  if (appState === 'loading') {
+  if (appState === 'loading' || appState === 'updating') {
     return (
       <div style={{
         width: '100%', height: '100%',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: 'var(--bg-main)'
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        gap: 16, background: 'var(--bg-main)'
       }}>
         <img
           src="./logo32.png"
-          style={{ width: 48, height: 48, imageRendering: 'pixelated', opacity: 0.5 }}
+          style={{ width: 48, height: 48, imageRendering: 'pixelated', opacity: 0.8 }}
           alt=""
         />
+        <span style={{ fontSize: 12, color: 'var(--text-muted)', letterSpacing: '0.5px' }}>
+          {appState === 'updating'
+            ? <span style={{ color: 'var(--warning)' }}>Mise à jour en cours…</span>
+            : 'Vérification des mises à jour…'}
+        </span>
       </div>
     )
   }

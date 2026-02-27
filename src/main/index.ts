@@ -41,15 +41,10 @@ app.whenReady().then(() => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 
-  // Auto-update — uniquement dans l'app packagée (pas en dev)
+  // Quand téléchargé → redémarre l'app pour appliquer
   if (app.isPackaged) {
-    autoUpdater.checkForUpdatesAndNotify()
-
-    autoUpdater.on('update-available', () => {
-      mainWindow?.webContents.send('update:available')
-    })
     autoUpdater.on('update-downloaded', () => {
-      mainWindow?.webContents.send('update:ready')
+      autoUpdater.quitAndInstall(false, true)
     })
   }
 })
@@ -218,6 +213,25 @@ ipcMain.handle('mods:setEnabled', (_e, paths: string[]) => {
 ipcMain.handle('app:version', () => app.getVersion())
 
 // ── Auto-update ───────────────────────────────────────────────────────────────
-ipcMain.on('update:install', () => {
-  autoUpdater.quitAndInstall()
+// Déclenché par le renderer au démarrage — renvoie { available: boolean }
+ipcMain.handle('update:check', () => {
+  if (!app.isPackaged) return Promise.resolve({ available: false })
+
+  return new Promise<{ available: boolean }>((resolve) => {
+    let done = false
+    const finish = (available: boolean) => {
+      if (done) return
+      done = true
+      resolve({ available })
+    }
+
+    autoUpdater.once('update-not-available', () => finish(false))
+    autoUpdater.once('update-available',     () => finish(true))
+    autoUpdater.once('error',                () => finish(false))
+
+    // Fallback si pas de réponse en 8 secondes
+    setTimeout(() => finish(false), 8000)
+
+    autoUpdater.checkForUpdates()?.catch(() => finish(false))
+  })
 })

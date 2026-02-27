@@ -42,6 +42,9 @@ contextBridge.exposeInMainWorld('api', {
   // Version launcher
   appVersion: () => ipcRenderer.invoke('app:version'),
 
+  // Auto-update
+  updateCheck: () => ipcRenderer.invoke('update:check'),
+
   // Mods optionnels
   modsGetOptional: () => ipcRenderer.invoke('mods:getOptional'),
   modsGetEnabled:  () => ipcRenderer.invoke('mods:getEnabled'),
