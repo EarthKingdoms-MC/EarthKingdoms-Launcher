@@ -113,7 +113,7 @@ export default function HomePage() {
             <span className="home__status-divider" />
             <span className="home__server-id">SRV-EU</span>
             <span className="home__status-divider" />
-            <img src="/icons/ping-low.svg" alt="" className="home__ping" />
+            <img src="./icons/ping-low.svg" alt="" className="home__ping" />
             <span className="home__ping-label">{ping > 0 ? `${ping} ms` : '—'}</span>
           </div>
 

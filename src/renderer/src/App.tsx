@@ -62,7 +62,7 @@ export default function App() {
         background: 'var(--bg-main)'
       }}>
         <img
-          src="/logo32.png"
+          src="./logo32.png"
           style={{ width: 48, height: 48, imageRendering: 'pixelated', opacity: 0.5 }}
           alt=""
         />

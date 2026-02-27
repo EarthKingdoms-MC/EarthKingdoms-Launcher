@@ -22,7 +22,7 @@ export default function Header({ currentPage, onNavigate, username, onOpenSkin, 
       {/* Logo — zone draggable */}
       <div className="header__drag">
         <div className="header__logo">
-          <img src="/logo32.png" alt="EarthKingdoms" className="header__logo-img" />
+          <img src="./logo32.png" alt="EarthKingdoms" className="header__logo-img" />
           <div className="header__logo-text">
             <span className="header__logo-earth">EARTH</span>
             <span className="header__logo-kingdoms">KINGDOMS</span>
@@ -34,10 +34,10 @@ export default function Header({ currentPage, onNavigate, username, onOpenSkin, 
       {/* Navigation */}
       <nav className="header__nav">
         {([
-          { id: 'home',     icon: '/icons/home.svg',     label: 'Accueil'    },
-          { id: 'mods',     icon: '/icons/update.svg',   label: 'Mods'       },
-          { id: 'settings', icon: '/icons/settings.svg', label: 'Paramètres' },
-          { id: 'logs',     icon: '/icons/logs.svg',     label: 'Logs'       },
+          { id: 'home',     icon: './icons/home.svg',     label: 'Accueil'    },
+          { id: 'mods',     icon: './icons/update.svg',   label: 'Mods'       },
+          { id: 'settings', icon: './icons/settings.svg', label: 'Paramètres' },
+          { id: 'logs',     icon: './icons/logs.svg',     label: 'Logs'       },
         ] as { id: Page; icon: string; label: string }[]).map(({ id, icon, label }) => (
           <button
             key={id}
@@ -55,7 +55,7 @@ export default function Header({ currentPage, onNavigate, username, onOpenSkin, 
         <button className="header__profile" onClick={onOpenSkin} title="Gérer le skin">
           {headUrl
             ? <img src={headUrl} className="header__avatar" alt="head" />
-            : <img src="/icons/avatar-default.svg" className="header__avatar header__avatar--fallback" alt="avatar" />
+            : <img src="./icons/avatar-default.svg" className="header__avatar header__avatar--fallback" alt="avatar" />
           }
           <span className="header__username">{username}</span>
         </button>

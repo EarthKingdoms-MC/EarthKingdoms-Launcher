@@ -10,7 +10,7 @@
 .home__bg {
   position: absolute;
   inset: 0;
-  background-image: url('/background.png');
+  background-image: url('./background.png');
   background-size: cover;
   background-position: center;
   filter: brightness(0.65) saturate(0.85);

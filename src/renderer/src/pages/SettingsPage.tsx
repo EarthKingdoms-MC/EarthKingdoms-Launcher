@@ -45,7 +45,7 @@ export default function SettingsPage({ savedRam, onSaveRam }: Props) {
 
         <section className="settings__section">
           <h2 className="settings__section-title">
-            <img src="/icons/ram.svg" alt="" style={{ width: 16, height: 16, filter: 'invert(1)', opacity: 0.6 }} />
+            <img src="./icons/ram.svg" alt="" style={{ width: 16, height: 16, filter: 'invert(1)', opacity: 0.6 }} />
             Mémoire allouée
           </h2>
           <div className="settings__row settings__row--col">
@@ -67,7 +67,7 @@ export default function SettingsPage({ savedRam, onSaveRam }: Props) {
 
         <section className="settings__section">
           <h2 className="settings__section-title">
-            <img src="/icons/java.svg" alt="" style={{ width: 16, height: 16, filter: 'invert(1)', opacity: 0.6 }} />
+            <img src="./icons/java.svg" alt="" style={{ width: 16, height: 16, filter: 'invert(1)', opacity: 0.6 }} />
             Environnement Java
           </h2>
           <div className="settings__row">
@@ -80,7 +80,7 @@ export default function SettingsPage({ savedRam, onSaveRam }: Props) {
               <span className="settings__hint">Laisse vide pour utiliser le JRE intégré.</span>
             </div>
             <button className="btn-secondary">
-              <img src="/icons/folder.svg" alt="" style={{ width: 13, height: 13, filter: 'invert(1)' }} />
+              <img src="./icons/folder.svg" alt="" style={{ width: 13, height: 13, filter: 'invert(1)' }} />
               Parcourir
             </button>
           </div>
@@ -88,7 +88,7 @@ export default function SettingsPage({ savedRam, onSaveRam }: Props) {
 
         <section className="settings__section">
           <h2 className="settings__section-title">
-            <img src="/icons/screen.svg" alt="" style={{ width: 16, height: 16, filter: 'invert(1)', opacity: 0.6 }} />
+            <img src="./icons/screen.svg" alt="" style={{ width: 16, height: 16, filter: 'invert(1)', opacity: 0.6 }} />
             Affichage
           </h2>
           <div className="settings__row">

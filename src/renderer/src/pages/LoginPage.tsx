@@ -55,7 +55,7 @@ export default function LoginPage({ onLogin }: Props) {
     <div className="login">
       <div className="login__bg" />
       <div className="login__card">
-        <img src="/logo32.png" alt="EarthKingdoms" className="login__logo" />
+        <img src="./logo32.png" alt="EarthKingdoms" className="login__logo" />
         <h1 className="login__title">EARTH<span>KINGDOMS</span></h1>
         <p className="login__subtitle">Connexion à votre compte</p>
 
