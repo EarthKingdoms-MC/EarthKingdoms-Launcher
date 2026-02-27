@@ -1,0 +1,182 @@
+.header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 50px;
+  background: linear-gradient(180deg, rgba(21,16,63,0.98) 0%, rgba(14,10,42,0.97) 100%);
+  border-bottom: 1px solid var(--border);
+  padding: 0 10px 0 20px;
+  flex-shrink: 0;
+  gap: 8px;
+  -webkit-app-region: no-drag;
+  z-index: 100;
+}
+/* Ligne orange très subtile en bas du header */
+.header::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 60px; right: 200px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(236,130,0,0.25), transparent);
+  pointer-events: none;
+}
+
+/* ── Logo ───────────────────────────────────────────── */
+.header__drag {
+  -webkit-app-region: drag;
+  cursor: move;
+  padding-right: 20px;
+  border-right: 1px solid var(--border);
+  margin-right: 8px;
+}
+.header__logo {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  -webkit-app-region: drag;
+}
+.header__logo-img {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 2px 8px rgba(236,130,0,0.45));
+  -webkit-app-region: drag;
+}
+.header__logo-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+}
+.header__logo-earth {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 4px;
+  color: var(--text);
+}
+.header__logo-kingdoms {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 5px;
+  color: var(--orange);
+  margin-top: 2px;
+}
+.header__logo-mc {
+  font-size: 13px;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+  margin-top: 1px;
+  opacity: 0.65;
+}
+
+/* ── Navigation ─────────────────────────────────────── */
+.header__nav { display: flex; gap: 2px; flex: 1; }
+
+.header__nav-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 180ms;
+  border-radius: 0;
+}
+.header__nav-btn img {
+  width: 15px; height: 15px;
+  opacity: 0.45; filter: invert(1);
+  transition: opacity 180ms;
+  flex-shrink: 0;
+}
+.header__nav-btn:hover { color: var(--text-secondary); }
+.header__nav-btn:hover img { opacity: 0.75; }
+/* Underline orange sur l'item actif */
+.header__nav-btn.active { color: var(--text); }
+.header__nav-btn.active img { opacity: 1; }
+.header__nav-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px; left: 10px; right: 10px;
+  height: 2px;
+  background: var(--orange);
+  border-radius: 1px 1px 0 0;
+}
+
+/* ── Actions droite ─────────────────────────────────── */
+.header__actions { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+
+/* Profil + tête skin */
+.header__profile {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 12px 5px 6px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  cursor: pointer;
+  transition: border-color 200ms, background 200ms;
+  background: rgba(26,12,128,0.15);
+}
+.header__profile:hover { border-color: rgba(236,130,0,0.5); background: rgba(26,12,128,0.3); }
+
+.header__avatar {
+  width: 28px; height: 28px;
+  border-radius: 4px;
+  image-rendering: pixelated;
+  background: var(--bg-elevated);
+  flex-shrink: 0;
+}
+.header__avatar--fallback {
+  filter: invert(1);
+  opacity: 0.5;
+  image-rendering: auto;
+  border-radius: 50%;
+}
+.header__username {
+  font-size: 13px; font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.5px;
+}
+
+/* Bouton déconnexion */
+.header__logout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color 180ms, color 180ms, background 180ms;
+  flex-shrink: 0;
+}
+.header__logout:hover {
+  border-color: rgba(231,76,60,0.5);
+  color: var(--error);
+  background: rgba(231,76,60,0.08);
+}
+
+/* ── Contrôles fenêtre ──────────────────────────────── */
+.header__window-controls { display: flex; margin-left: 6px; }
+.header__window-controls button {
+  background: transparent; border: none;
+  color: var(--text-muted);
+  width: 36px; height: 36px;
+  font-size: 20px; cursor: pointer;
+  transition: background 150ms, color 150ms;
+  display: flex; align-items: center; justify-content: center;
+}
+.header__window-controls button:hover { background: rgba(255,255,255,0.07); color: var(--text); }
+.header__window-controls button.close:hover { background: var(--error); color: #fff; }

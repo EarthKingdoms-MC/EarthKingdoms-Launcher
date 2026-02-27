@@ -1,0 +1,156 @@
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=VT323&display=swap');
+
+/* VT323 — pixel font, signale Minecraft sur les données techniques */
+.font-mc { font-family: 'VT323', monospace; }
+
+/* ── Design Tokens ─────────────────────────────────── */
+:root {
+  --bg-main:        #0E0A2A;
+  --bg-surface:     #15103F;
+  --bg-elevated:    #1C1750;
+  --blue:           #1A0C80;
+  --blue-mid:       #2516A8;
+  --orange:         #EC8200;
+  --orange-hover:   #FF9B20;
+  --orange-pressed: #C46D00;
+  --orange-glow:    rgba(236, 130, 0, 0.40);
+  --text:           #F2F2F2;
+  --text-secondary: #B8B8C9;
+  --text-muted:     #7070A0;
+  --success:        #2ECC71;
+  --error:          #E74C3C;
+  --warning:        #EC8200;
+  --border:         rgba(26, 12, 128, 0.55);
+  --border-bright:  rgba(26, 12, 128, 0.85);
+  --radius-sm:      3px;
+  --radius-md:      6px;
+  --radius-lg:      10px;
+}
+
+/* ── Reset ──────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  user-select: none;
+}
+
+body {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 15px;
+  color: var(--text);
+  background: var(--bg-main);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Scrollbar ──────────────────────────────────────── */
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(26,12,128,0.7); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--orange); }
+
+/* ── Layout racine ──────────────────────────────────── */
+.app {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+
+/* ── Bouton Play — PREMIUM ──────────────────────────── */
+.btn-play {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 0 52px;
+  height: 68px;
+  background: linear-gradient(100deg, #C97000 0%, var(--orange) 45%, #FF9B20 100%);
+  color: #fff;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 6px;
+  text-transform: uppercase;
+  border: none;
+  clip-path: polygon(10px 0%, 100% 0%, calc(100% - 10px) 100%, 0% 100%);
+  cursor: pointer;
+  box-shadow: 0 0 36px rgba(236,130,0,0.45), 0 6px 24px rgba(0,0,0,0.5);
+  transition: box-shadow 200ms ease, transform 120ms ease, filter 200ms ease;
+  width: 100%;
+  max-width: 400px;
+}
+.btn-play::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -80%;
+  width: 50%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.22), transparent);
+  transform: skewX(-15deg);
+  animation: btn-shine 4s ease-in-out infinite;
+}
+@keyframes btn-shine {
+  0%        { left: -80%; }
+  40%, 100% { left: 140%; }
+}
+.btn-play:hover  { filter: brightness(1.12); box-shadow: 0 0 52px rgba(236,130,0,0.6), 0 8px 28px rgba(0,0,0,0.6); }
+.btn-play:active { transform: scale(0.98); filter: brightness(0.95); }
+.btn-play:disabled {
+  background: linear-gradient(90deg, #3A3060, #4A4070);
+  box-shadow: none;
+  cursor: not-allowed;
+  color: var(--text-muted);
+}
+.btn-play:disabled::after { display: none; }
+
+/* ── Bouton secondaire ──────────────────────────────── */
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 20px;
+  background: rgba(26, 12, 128, 0.4);
+  color: var(--text);
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  border: 1px solid var(--border-bright);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color 200ms, background 200ms;
+}
+.btn-secondary:hover  { border-color: var(--orange); background: rgba(26, 12, 128, 0.65); }
+.btn-secondary:active { filter: brightness(0.9); }
+.btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Barre de progression ───────────────────────────── */
+.progress-bar {
+  width: 100%;
+  height: 3px;
+  background: rgba(26,12,128,0.35);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.progress-bar__fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--orange), var(--orange-hover));
+  border-radius: 2px;
+  transition: width 250ms ease;
+  box-shadow: 0 0 8px var(--orange-glow);
+}
+
+/* Barre indéterminée — animation scanning quand on n'a pas de % exact */
+@keyframes pb-scan {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+.progress-bar--indeterminate .progress-bar__fill {
+  width: 25% !important;
+  transition: none;
+  animation: pb-scan 1.4s ease-in-out infinite;
+}

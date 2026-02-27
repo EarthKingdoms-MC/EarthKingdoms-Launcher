@@ -1,0 +1,30 @@
+appId: com.earthkingdoms.launcher
+productName: EarthKingdoms
+directories:
+  buildResources: build
+  output: dist
+files:
+  - out/**/*
+extraResources:
+  - from: public/background.png
+    to: background.png
+
+win:
+  target: nsis
+  icon: build/icon.ico
+
+mac:
+  target: dmg
+  icon: build/icon.icns
+
+linux:
+  target:
+    - AppImage
+    - deb
+  icon: build/icon.png
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
