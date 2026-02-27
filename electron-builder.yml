@@ -1,6 +1,5 @@
 appId: com.earthkingdoms.launcher
 productName: EarthKingdoms
-publish: never
 directories:
   buildResources: build
   output: dist
