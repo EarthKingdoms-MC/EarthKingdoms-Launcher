@@ -1,15 +1,14 @@
-name: Build
+name: Build & Release
 
 on:
   push:
-    tags:
-      - 'v*'
-  workflow_dispatch:
+    branches:
+      - main
 
 jobs:
   build:
     strategy:
-      fail-fast: false   # si un OS échoue, les autres continuent
+      fail-fast: false
       matrix:
         include:
           - os: windows-latest
@@ -20,6 +19,9 @@ jobs:
             artifact: dist/*.AppImage
 
     runs-on: ${{ matrix.os }}
+
+    permissions:
+      contents: write   # nécessaire pour créer la release
 
     steps:
       - name: Checkout
@@ -33,9 +35,7 @@ jobs:
 
       - name: Install Linux dependencies
         if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y rpm fakeroot dpkg
+        run: sudo apt-get update && sudo apt-get install -y rpm fakeroot dpkg
 
       - name: Install dependencies
         run: npm install
@@ -43,9 +43,18 @@ jobs:
       - name: Build
         run: npm run package
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - name: Get version
+        id: version
+        shell: bash
+        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
+      - name: Create Release & upload artifact
+        uses: softprops/action-gh-release@v2
         with:
-          name: EarthKingdoms-${{ matrix.os }}
-          path: ${{ matrix.artifact }}
-          if-no-files-found: warn
+          tag_name: v${{ steps.version.outputs.version }}
+          name: EarthKingdoms Launcher v${{ steps.version.outputs.version }}
+          draft: false
+          prerelease: false
+          files: ${{ matrix.artifact }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
