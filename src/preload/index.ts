@@ -39,6 +39,9 @@ contextBridge.exposeInMainWorld('api', {
   logsGetAll:  () => ipcRenderer.invoke('logs:getAll'),
   logsOpenDir: () => ipcRenderer.invoke('logs:openDir'),
 
+  // Version launcher
+  appVersion: () => ipcRenderer.invoke('app:version'),
+
   // Mods optionnels
   modsGetOptional: () => ipcRenderer.invoke('mods:getOptional'),
   modsGetEnabled:  () => ipcRenderer.invoke('mods:getEnabled'),

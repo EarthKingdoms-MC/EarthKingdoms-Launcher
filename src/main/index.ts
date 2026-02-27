@@ -214,6 +214,9 @@ ipcMain.handle('mods:setEnabled', (_e, paths: string[]) => {
   store.set('enabledOptionalMods', paths)
 })
 
+// ── Version applicaton ────────────────────────────────────────────────────────
+ipcMain.handle('app:version', () => app.getVersion())
+
 // ── Auto-update ───────────────────────────────────────────────────────────────
 ipcMain.on('update:install', () => {
   autoUpdater.quitAndInstall()

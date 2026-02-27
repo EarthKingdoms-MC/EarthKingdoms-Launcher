@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import './Footer.css'
 
 const LINKS = [
@@ -103,10 +104,15 @@ interface Props {
 
 export default function Footer({ ram }: Props) {
   const open = (url: string) => window.api.openExternal(url)
+  const [version, setVersion] = useState('...')
+
+  useEffect(() => {
+    ;(window.api as any).appVersion().then((v: string) => setVersion(v))
+  }, [])
 
   return (
     <footer className="footer">
-      <span className="footer__item font-mc footer__item--ver">v0.9.4-beta</span>
+      <span className="footer__item font-mc footer__item--ver">v{version}</span>
       <span className="footer__sep">·</span>
       <span className="footer__item">MC <span className="footer__value font-mc">1.20.1</span></span>
       <span className="footer__sep">·</span>
