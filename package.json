@@ -20,6 +20,7 @@
     "@vitejs/plugin-react": "^4.2.0",
     "electron": "^28.0.0",
     "electron-builder": "^24.9.0",
+    "electron-icon-builder": "^2.0.1",
     "electron-vite": "^2.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
