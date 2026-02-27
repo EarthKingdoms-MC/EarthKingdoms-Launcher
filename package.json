@@ -2,6 +2,10 @@
   "name": "earthkingdoms-launcher",
   "version": "1.0.0",
   "description": "EarthKingdoms Minecraft Launcher",
+  "author": {
+    "name": "EarthKingdoms",
+    "email": "contact@earthkingdoms-mc.fr"
+  },
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
