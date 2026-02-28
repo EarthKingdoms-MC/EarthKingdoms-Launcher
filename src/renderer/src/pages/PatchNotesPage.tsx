@@ -1,37 +1,45 @@
 import { useEffect, useState } from 'react'
 import './PatchNotesPage.css'
 
-interface PatchNote {
-  version: string
+interface PatchCard {
+  title:   string
   date:    string
-  entries: string[]
+  excerpt: string
+  url:     string
 }
 
-function parsePatchNotes(html: string): PatchNote[] {
+function parsePatchNotes(html: string): PatchCard[] {
   const doc   = new DOMParser().parseFromString(html, 'text/html')
-  const items: PatchNote[] = []
-
-  const cards = Array.from(
-    doc.querySelectorAll('.patchnote-card, .patchnote, .changelog-entry, .patch-card, article')
-  )
+  const cards = Array.from(doc.querySelectorAll('.news-card'))
+  const items: PatchCard[] = []
 
   for (const card of cards) {
-    const versionEl = card.querySelector('h1, h2, h3, .version, .patch-version')
-    const dateEl    = card.querySelector('.date, time, .patch-date')
-    const listEls   = Array.from(card.querySelectorAll('li, .entry, .change, .changelog-line'))
+    // Titre : h1/h2/h3 ou .title, .news-title, .card-title
+    const titleEl  = card.querySelector('h1, h2, h3, .title, .news-title, .card-title')
+    // Date : .date, time, [class*="date"]
+    const dateEl   = card.querySelector('.date, time, [class*="date"]')
+    // Extrait : premier <p> de .news-content, sinon tout le texte hors titre/date
+    const content  = card.querySelector('.news-content, .card-content')
+    const excerptEl = content?.querySelector('p') ?? card.querySelector('p')
+    // Lien vers l'article complet
+    const linkEl   = card.querySelector('a[href*="/news/"]') ?? card.closest('a[href*="/news/"]')
+    const href     = linkEl?.getAttribute('href') ?? ''
 
-    const version = versionEl?.textContent?.trim() ?? ''
+    const title   = titleEl?.textContent?.trim()   ?? ''
     const date    = dateEl?.textContent?.trim()    ?? ''
-    const entries = listEls.map(el => el.textContent?.trim() ?? '').filter(Boolean)
+    const excerpt = excerptEl?.textContent?.trim() ?? ''
+    const url     = href.startsWith('http')
+      ? href
+      : `https://earthkingdoms-mc.fr${href}`
 
-    if (version || entries.length) items.push({ version, date, entries })
+    if (title) items.push({ title, date, excerpt, url })
   }
 
   return items
 }
 
 export default function PatchNotesPage() {
-  const [notes,   setNotes]   = useState<PatchNote[]>([])
+  const [cards,   setCards]   = useState<PatchCard[]>([])
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState(false)
 
@@ -39,7 +47,7 @@ export default function PatchNotesPage() {
     window.api.patchnotesLoad().then(html => {
       if (!html) { setError(true); setLoading(false); return }
       const parsed = parsePatchNotes(html)
-      setNotes(parsed)
+      setCards(parsed)
       setLoading(false)
     }).catch(() => { setError(true); setLoading(false) })
   }, [])
@@ -56,7 +64,7 @@ export default function PatchNotesPage() {
           </div>
         )}
 
-        {!loading && (error || notes.length === 0) && (
+        {!loading && (error || cards.length === 0) && (
           <div className="patchnotes__state">
             <div className="patchnotes__state-icon">◈</div>
             <div className="patchnotes__state-title">Bientôt disponible</div>
@@ -66,21 +74,29 @@ export default function PatchNotesPage() {
           </div>
         )}
 
-        {!loading && !error && notes.map((note, i) => (
-          <div key={i} className="patchnotes__entry">
-            <div className="patchnotes__entry-header">
-              {note.version && <span className="patchnotes__entry-version">{note.version}</span>}
-              {note.date    && <span className="patchnotes__entry-date">{note.date}</span>}
-            </div>
-            {note.entries.length > 0 && (
-              <ul className="patchnotes__entry-list">
-                {note.entries.map((e, j) => (
-                  <li key={j} className="patchnotes__entry-item">{e}</li>
-                ))}
-              </ul>
-            )}
+        {!loading && !error && cards.length > 0 && (
+          <div className="patchnotes__cards">
+            {cards.map((card, i) => (
+              <div
+                key={i}
+                className="patchnotes__card"
+                onClick={() => card.url && window.api.openExternal(card.url)}
+                style={{ cursor: card.url ? 'pointer' : 'default' }}
+              >
+                <div className="patchnotes__card-header">
+                  <span className="patchnotes__card-title">{card.title}</span>
+                  {card.date && <span className="patchnotes__card-date">{card.date}</span>}
+                </div>
+                {card.excerpt && (
+                  <p className="patchnotes__card-excerpt">{card.excerpt}</p>
+                )}
+                {card.url && (
+                  <span className="patchnotes__card-link">Lire sur le site →</span>
+                )}
+              </div>
+            ))}
           </div>
-        ))}
+        )}
       </div>
     </div>
   )

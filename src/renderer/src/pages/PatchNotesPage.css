@@ -75,61 +75,62 @@
   line-height: 1.6;
 }
 
-/* ── Entrée de patch note ───────────────────────────── */
-.patchnotes__entry {
-  margin-bottom: 28px;
-  border: 1px solid var(--border);
-  border-left: 2px solid var(--orange);
-  border-radius: 2px;
-  background: var(--bg-surface);
-  overflow: hidden;
-}
-
-.patchnotes__entry-header {
-  display: flex;
-  align-items: baseline;
-  gap: 14px;
-  padding: 14px 20px 12px;
-  border-bottom: 1px solid var(--border);
-  background: rgba(26, 12, 128, 0.12);
-}
-
-.patchnotes__entry-version {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--orange);
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-}
-
-.patchnotes__entry-date {
-  font-size: 11px;
-  color: var(--text-muted);
-  letter-spacing: 0.5px;
-}
-
-.patchnotes__entry-list {
-  list-style: none;
-  padding: 12px 20px 14px;
-  margin: 0;
+/* ── Cards patch notes (depuis /news/?filter=patch-note) ── */
+.patchnotes__cards {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 14px;
 }
 
-.patchnotes__entry-item {
-  font-size: 13px;
-  color: var(--text-secondary);
-  line-height: 1.5;
-  padding-left: 14px;
-  position: relative;
+.patchnotes__card {
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--orange);
+  border-radius: 8px;
+  background: var(--bg-surface);
+  padding: 16px 20px;
+  transition: border-color 0.15s, transform 0.12s;
 }
-.patchnotes__entry-item::before {
-  content: '▸';
-  position: absolute;
-  left: 0;
+.patchnotes__card:hover {
+  border-color: rgba(249,115,22,0.4);
+  transform: translateY(-1px);
+}
+
+.patchnotes__card-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.patchnotes__card-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.3px;
+}
+
+.patchnotes__card-date {
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
+}
+
+.patchnotes__card-excerpt {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin: 0 0 10px;
+}
+
+.patchnotes__card-link {
+  font-size: 11px;
   color: var(--orange);
-  opacity: 0.6;
-  font-size: 10px;
-  top: 1px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  opacity: 0.8;
+  transition: opacity 0.15s;
+}
+.patchnotes__card:hover .patchnotes__card-link {
+  opacity: 1;
 }

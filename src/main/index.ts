@@ -387,9 +387,10 @@ ipcMain.handle('app:version', () => app.getVersion())
 ipcMain.handle('system:totalRam', () => Math.floor(totalmem() / 1024 / 1024 / 1024))
 
 // ── Patch notes ───────────────────────────────────────────────────────────────
+// Les patch notes sont des articles filtrés depuis la page news
 ipcMain.handle('patchnotes:load', async () => {
   try {
-    const res = await net.fetch('https://earthkingdoms-mc.fr/patchnotes/')
+    const res = await net.fetch('https://earthkingdoms-mc.fr/news/?filter=patch-note')
     if (!res.ok) return null
     return await res.text()
   } catch {
