@@ -76,8 +76,8 @@ app.whenReady().then(() => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 
-  // Quand téléchargé → redémarre l'app pour appliquer
-  if (app.isPackaged) {
+  // Quand téléchargé → redémarre l'app pour appliquer (Windows + Linux uniquement)
+  if (app.isPackaged && process.platform !== 'darwin') {
     autoUpdater.on('update-available',   (info) => wlog(`Mise à jour disponible : ${(info as any)?.version ?? '?'}`))
     autoUpdater.on('update-downloaded',  (info) => {
       wlog(`Mise à jour téléchargée : ${(info as any)?.version ?? '?'} — redémarrage…`)
@@ -429,7 +429,7 @@ ipcMain.handle('profiles:setActive', (_e, id: string) => {
 // ── Auto-update ───────────────────────────────────────────────────────────────
 // Déclenché par le renderer au démarrage — renvoie { available: boolean }
 ipcMain.handle('update:check', () => {
-  if (!app.isPackaged) return Promise.resolve({ available: false })
+  if (!app.isPackaged || process.platform === 'darwin') return Promise.resolve({ available: false })
 
   return new Promise<{ available: boolean }>((resolve) => {
     let done = false
