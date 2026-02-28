@@ -66,7 +66,6 @@ export default function Header({
           <div className="header__logo-text">
             <span className="header__logo-earth">EARTH</span>
             <span className="header__logo-kingdoms">KINGDOMS</span>
-            <span className="header__logo-mc font-mc">1.20.1</span>
           </div>
         </div>
       </div>
