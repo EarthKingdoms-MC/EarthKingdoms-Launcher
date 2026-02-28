@@ -158,6 +158,18 @@
 }
 .skinm__3d-icon { font-size: 22px; color: var(--orange); opacity: 0.5; }
 
+/* ── Aperçu 3D ──────────────────────────────────────── */
+.skinm__3d-wrap {
+  display: flex;
+  justify-content: center;
+  margin-top: auto;
+  border-radius: 4px;
+  overflow: hidden;
+  background: repeating-conic-gradient(#1a1550 0% 25%, #15103F 0% 50%) 0 0 / 10px 10px;
+  border: 1px solid var(--border);
+}
+.skinm__3d-wrap canvas { display: block; }
+
 /* ── Changer ────────────────────────────────────────── */
 .skinm__change { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
 .skinm__change-notice {
@@ -210,6 +222,169 @@
   border-radius: 4px;
   color: var(--text-muted);
   font-size: 13px;
+}
+.skinm__upload-zone--active {
+  cursor: pointer;
+  transition: border-color 150ms, background 150ms;
+}
+.skinm__upload-zone--active:hover,
+.skinm__upload-zone--drag {
+  border-color: rgba(236, 130, 0, 0.5);
+  background: rgba(236, 130, 0, 0.04);
+  color: var(--text-secondary);
+}
+.skinm__upload-sub { font-size: 11px; color: var(--text-muted); opacity: 0.7; }
+
+/* ── Prévisualisation fichier sélectionné ─────────── */
+.skinm__upload-preview {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  background: rgba(26, 12, 128, 0.12);
+  border: 1px solid var(--border-bright);
+  border-radius: 4px;
+}
+.skinm__skin-texture--preview {
+  width: 80px !important;
+  height: 80px !important;
+  flex-shrink: 0;
+}
+.skinm__upload-preview-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.skinm__upload-filename {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.skinm__upload-filesize {
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.3px;
+}
+.skinm__upload-error {
+  font-size: 12px;
+  color: var(--error);
+  font-weight: 500;
+  line-height: 1.4;
+}
+.skinm__upload-ok {
+  font-size: 12px;
+  color: var(--success);
+  font-weight: 600;
+}
+.skinm__upload-reset {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  width: 28px; height: 28px;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 12px;
+  transition: background 150ms, color 150ms;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.skinm__upload-reset:hover { background: rgba(231,76,60,0.12); color: var(--error); }
+
+/* ── Historique skins ───────────────────────────────── */
+.skinm__hist {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 4px;
+  border-top: 1px solid rgba(26, 12, 128, 0.4);
+}
+.skinm__hist-title {
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.skinm__hist-hint {
+  font-size: 11px;
+  color: var(--text-muted);
   opacity: 0.6;
 }
-.skinm__upload-sub { font-size: 11px; color: var(--orange); opacity: 0.7; }
+.skinm__hist-grid {
+  display: flex;
+  gap: 10px;
+}
+.skinm__hist-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  background: rgba(26, 12, 128, 0.12);
+  border: 1px solid rgba(26, 12, 128, 0.4);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: border-color 150ms, background 150ms;
+  position: relative;
+}
+.skinm__hist-item:hover:not(:disabled) {
+  border-color: rgba(236, 130, 0, 0.5);
+  background: rgba(236, 130, 0, 0.06);
+}
+.skinm__hist-item--current {
+  border-color: rgba(236, 130, 0, 0.4);
+  cursor: default;
+}
+.skinm__hist-item--restoring {
+  opacity: 0.5;
+  cursor: wait;
+}
+.skinm__hist-thumb {
+  width: 64px;
+  height: 64px;
+  image-rendering: pixelated;
+  background: repeating-conic-gradient(#1a1550 0% 25%, #15103F 0% 50%) 0 0 / 8px 8px;
+  border-radius: 2px;
+}
+.skinm__hist-thumb--loading {
+  background: rgba(26, 12, 128, 0.2);
+  animation: skinm-pulse 1.2s ease-in-out infinite;
+}
+@keyframes skinm-pulse {
+  0%, 100% { opacity: 0.4 }
+  50% { opacity: 0.8 }
+}
+.skinm__hist-badge {
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--orange);
+  font-weight: 700;
+}
+
+/* ── Succès ─────────────────────────────────────────── */
+.skinm__upload-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 32px 24px;
+  text-align: center;
+  color: var(--success);
+}
+.skinm__upload-success svg { opacity: 0.9; }
+.skinm__upload-success-title {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+.skinm__upload-success-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}

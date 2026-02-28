@@ -16,7 +16,7 @@ const LINKS = [
   {
     id: 'dynmap',
     label: 'Dynmap',
-    url: 'https://map.earthkingdoms-mc.fr',
+    url: 'https://earthkingdoms-mc.fr/dynmap.php',
     icon: (
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <polygon points="3,6 9,3 15,6 21,3 21,18 15,21 9,18 3,21"/>
@@ -28,7 +28,7 @@ const LINKS = [
   {
     id: 'wiki',
     label: 'Wiki',
-    url: 'https://wiki.earthkingdoms-mc.fr',
+    url: 'https://earthkingdoms-mc.fr/wiki.php',
     icon: (
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>

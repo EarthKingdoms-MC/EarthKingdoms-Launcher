@@ -28,6 +28,22 @@ export interface LaunchProgressEvent {
   speed?: number
 }
 
+export interface SkinHistoryItem {
+  id:         string | number
+  skin_url:   string
+  created_at: string | null
+  is_current: boolean
+}
+
+export interface LaunchProfile {
+  id:       string
+  name:     string
+  ram:      number
+  resW:     number
+  resH:     number
+  javaPath: string | null
+}
+
 declare global {
   interface Window {
     api: {
@@ -47,6 +63,10 @@ declare global {
 
       newsLoad(): Promise<string | null>
       skinLoad(username: string): Promise<string | null>
+      skinLoadUrl(url: string): Promise<string | null>
+      skinUpload(data: number[]): Promise<{ ok: boolean; error?: string }>
+      skinHistoryList(): Promise<{ ok: boolean; history?: SkinHistoryItem[]; error?: string }>
+      skinHistoryRestore(id: string): Promise<{ ok: boolean; error?: string }>
 
       launchStart(): Promise<{ ok: boolean; error?: string }>
       launchStop(): void
@@ -55,9 +75,21 @@ declare global {
       logsGetAll(): Promise<string[]>
       logsOpenDir(): Promise<void>
 
+      dialogOpenFile(): Promise<string | null>
+      appVersion(): Promise<string>
+      updateCheck(): Promise<{ available: boolean }>
+
       modsGetOptional(): Promise<Array<{ url: string; size: number; hash: string; path: string }>>
       modsGetEnabled(): Promise<string[]>
       modsSetEnabled(paths: string[]): Promise<void>
+
+      systemTotalRam(): Promise<number>
+      patchnotesLoad(): Promise<string | null>
+
+      profilesList(): Promise<{ profiles: LaunchProfile[]; activeId: string }>
+      profilesSave(profile: LaunchProfile): Promise<void>
+      profilesDelete(id: string): Promise<void>
+      profilesSetActive(id: string): Promise<void>
 
       on(channel: string, cb: (...args: unknown[]) => void): void
       off(channel: string, cb: (...args: unknown[]) => void): void
@@ -67,13 +99,15 @@ declare global {
 
 /** Extrait la tête (face + hat overlay) depuis la texture skin.
  *  Le chargement passe par le main process (net.fetch) pour contourner CSP/CORS.
- *  La data URL renvoyée est dessinée sur canvas sans problème de taint. */
-export function useSkinHead(username: string): string | null {
+ *  La data URL renvoyée est dessinée sur canvas sans problème de taint.
+ *  refreshKey : incrémente pour forcer un rechargement après upload. */
+export function useSkinHead(username: string, refreshKey?: number): string | null {
   const [headUrl, setHeadUrl] = useState<string | null>(null)
 
   useEffect(() => {
     if (!username) return
     let cancelled = false
+    setHeadUrl(null)
 
     async function load() {
       try {
@@ -100,23 +134,25 @@ export function useSkinHead(username: string): string | null {
 
     load()
     return () => { cancelled = true }
-  }, [username])
+  }, [username, refreshKey])
 
   return headUrl
 }
 
-/** Retourne la data URL brute de la texture complète (pour affichage dans SkinModal). */
-export function useSkinTexture(username: string): string | null {
+/** Retourne la data URL brute de la texture complète (pour affichage dans SkinModal).
+ *  refreshKey : incrémente pour forcer un rechargement après upload. */
+export function useSkinTexture(username: string, refreshKey?: number): string | null {
   const [dataUrl, setDataUrl] = useState<string | null>(null)
 
   useEffect(() => {
     if (!username) return
     let cancelled = false
+    setDataUrl(null)
     window.api.skinLoad(username).then(url => {
       if (!cancelled) setDataUrl(url)
     }).catch(() => {})
     return () => { cancelled = true }
-  }, [username])
+  }, [username, refreshKey])
 
   return dataUrl
 }

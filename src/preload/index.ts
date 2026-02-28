@@ -28,7 +28,11 @@ contextBridge.exposeInMainWorld('api', {
   newsLoad: () => ipcRenderer.invoke('news:load'),
 
   // Skin
-  skinLoad: (username: string) => ipcRenderer.invoke('skin:load', username),
+  skinLoad:           (username: string) => ipcRenderer.invoke('skin:load', username),
+  skinLoadUrl:        (url: string)      => ipcRenderer.invoke('skin:loadUrl', url),
+  skinUpload:         (data: number[])   => ipcRenderer.invoke('skin:upload', data),
+  skinHistoryList:    ()                 => ipcRenderer.invoke('skin:historyList'),
+  skinHistoryRestore: (id: string)       => ipcRenderer.invoke('skin:historyRestore', id),
 
   // Lancement Minecraft
   launchStart:     () => ipcRenderer.invoke('launch:start'),
@@ -38,6 +42,9 @@ contextBridge.exposeInMainWorld('api', {
   // Logs
   logsGetAll:  () => ipcRenderer.invoke('logs:getAll'),
   logsOpenDir: () => ipcRenderer.invoke('logs:openDir'),
+
+  // Sélecteur fichier
+  dialogOpenFile: () => ipcRenderer.invoke('dialog:openFile'),
 
   // Version launcher
   appVersion: () => ipcRenderer.invoke('app:version'),
@@ -49,6 +56,18 @@ contextBridge.exposeInMainWorld('api', {
   modsGetOptional: () => ipcRenderer.invoke('mods:getOptional'),
   modsGetEnabled:  () => ipcRenderer.invoke('mods:getEnabled'),
   modsSetEnabled:  (paths: string[]) => ipcRenderer.invoke('mods:setEnabled', paths),
+
+  // RAM système
+  systemTotalRam: () => ipcRenderer.invoke('system:totalRam'),
+
+  // Patch notes
+  patchnotesLoad: () => ipcRenderer.invoke('patchnotes:load'),
+
+  // Profils de lancement
+  profilesList:      ()                    => ipcRenderer.invoke('profiles:list'),
+  profilesSave:      (profile: unknown)    => ipcRenderer.invoke('profiles:save', profile),
+  profilesDelete:    (id: string)          => ipcRenderer.invoke('profiles:delete', id),
+  profilesSetActive: (id: string)          => ipcRenderer.invoke('profiles:setActive', id),
 
   // Listeners main → renderer (on/off correctement appairés pour éviter les fuites)
   on: (channel: string, cb: (...args: unknown[]) => void) => {

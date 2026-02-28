@@ -1,0 +1,74 @@
+.dynmap {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background: var(--bg-main);
+}
+
+/* ── webview ────────────────────────────────────────── */
+.dynmap__webview {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+.dynmap__webview--hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ── Overlay chargement / erreur ────────────────────── */
+.dynmap__overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--bg-main);
+  z-index: 2;
+  text-align: center;
+  padding: 24px;
+}
+
+.dynmap__overlay-icon {
+  font-size: 38px;
+  color: var(--orange);
+  opacity: 0.35;
+  animation: dynmap-spin 4s linear infinite;
+  line-height: 1;
+}
+.dynmap__overlay-icon--warn {
+  animation: none;
+  color: var(--warning);
+  opacity: 0.7;
+  font-size: 32px;
+}
+@keyframes dynmap-spin {
+  from { transform: rotate(0deg) }
+  to   { transform: rotate(360deg) }
+}
+
+.dynmap__overlay-text {
+  font-size: 13px;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+}
+
+.dynmap__overlay-title {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.dynmap__overlay-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  opacity: 0.65;
+  max-width: 300px;
+  line-height: 1.5;
+}

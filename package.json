@@ -17,7 +17,8 @@
   "dependencies": {
     "electron-store": "^8.2.0",
     "electron-updater": "^6.1.7",
-    "minecraft-java-core": "^4.2.6"
+    "minecraft-java-core": "^4.2.6",
+    "react-skinview3d": "^7.0.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.0",

@@ -23,8 +23,6 @@
 
 /* ── Logo ───────────────────────────────────────────── */
 .header__drag {
-  -webkit-app-region: drag;
-  cursor: move;
   padding-right: 20px;
   border-right: 1px solid var(--border);
   margin-right: 8px;
@@ -34,7 +32,6 @@
   flex-direction: row;
   align-items: center;
   gap: 10px;
-  -webkit-app-region: drag;
 }
 .header__logo-img {
   width: 32px;
@@ -42,7 +39,6 @@
   flex-shrink: 0;
   image-rendering: pixelated;
   filter: drop-shadow(0 2px 8px rgba(236,130,0,0.45));
-  -webkit-app-region: drag;
 }
 .header__logo-text {
   display: flex;
@@ -71,7 +67,7 @@
 }
 
 /* ── Navigation ─────────────────────────────────────── */
-.header__nav { display: flex; gap: 2px; flex: 1; -webkit-app-region: no-drag; }
+.header__nav { display: flex; gap: 2px; flex: 1; }
 
 .header__nav-btn {
   position: relative;
@@ -90,6 +86,7 @@
   cursor: pointer;
   transition: color 180ms;
   border-radius: 0;
+  -webkit-app-region: no-drag;
 }
 .header__nav-btn img {
   width: 15px; height: 15px;
@@ -112,7 +109,7 @@
 }
 
 /* ── Actions droite ─────────────────────────────────── */
-.header__actions { display: flex; align-items: center; gap: 10px; margin-left: auto; -webkit-app-region: no-drag; }
+.header__actions { display: flex; align-items: center; gap: 10px; margin-left: auto; }
 
 /* Profil + tête skin */
 .header__profile {
@@ -125,6 +122,7 @@
   cursor: pointer;
   transition: border-color 200ms, background 200ms;
   background: rgba(26,12,128,0.15);
+  -webkit-app-region: no-drag;
 }
 .header__profile:hover { border-color: rgba(236,130,0,0.5); background: rgba(26,12,128,0.3); }
 
@@ -161,6 +159,7 @@
   cursor: pointer;
   transition: border-color 180ms, color 180ms, background 180ms;
   flex-shrink: 0;
+  -webkit-app-region: no-drag;
 }
 .header__logout:hover {
   border-color: rgba(231,76,60,0.5);
@@ -168,9 +167,29 @@
   background: rgba(231,76,60,0.08);
 }
 
+/* ── Badge notification nav ─────────────────────────── */
+.header__nav-badge {
+  position: absolute;
+  top: 5px; right: 5px;
+  min-width: 8px; height: 8px;
+  padding: 0 2px;
+  background: var(--orange);
+  border-radius: 8px;
+  font-size: 8px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 6px rgba(236,130,0,0.55);
+  pointer-events: none;
+}
+
 /* ── Contrôles fenêtre ──────────────────────────────── */
 .header__window-controls { display: flex; margin-left: 6px; }
 .header__window-controls button {
+  -webkit-app-region: no-drag;
   background: transparent; border: none;
   color: var(--text-muted);
   width: 36px; height: 36px;

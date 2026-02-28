@@ -67,3 +67,36 @@
 .logs__msg { color: var(--text-secondary); }
 .logs__line--warn .logs__msg { color: #D4A84B; }
 .logs__line--error .logs__msg { color: var(--error); }
+
+/* ── Banner crash ────────────────────────────────────── */
+.logs__crash-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 24px;
+  background: rgba(231, 76, 60, 0.12);
+  border-bottom: 1px solid rgba(231, 76, 60, 0.35);
+  color: var(--error);
+  font-size: 13px;
+  font-weight: 500;
+  flex-shrink: 0;
+  animation: fade-in-down 200ms ease;
+}
+@keyframes fade-in-down {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.logs__crash-banner svg { flex-shrink: 0; opacity: 0.9; }
+.logs__crash-banner span { flex: 1; }
+.logs__crash-dismiss {
+  background: transparent;
+  border: none;
+  color: var(--error);
+  opacity: 0.6;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  transition: opacity 150ms, background 150ms;
+}
+.logs__crash-dismiss:hover { opacity: 1; background: rgba(231,76,60,0.15); }

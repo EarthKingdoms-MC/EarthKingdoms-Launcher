@@ -7,19 +7,30 @@ declare global {
 }
 
 interface Props {
-  currentPage: Page
-  onNavigate:  (p: Page) => void
-  username:    string
-  onOpenSkin:  () => void
-  onLogout?:   () => void
+  currentPage:    Page
+  onNavigate:     (p: Page) => void
+  username:       string
+  skinRefreshKey?: number
+  onOpenSkin:     () => void
+  onLogout?:      () => void
+  newsBadge?:     number
 }
 
-export default function Header({ currentPage, onNavigate, username, onOpenSkin, onLogout }: Props) {
-  const headUrl = useSkinHead(username)
+export default function Header({ currentPage, onNavigate, username, skinRefreshKey, onOpenSkin, onLogout, newsBadge }: Props) {
+  const headUrl = useSkinHead(username, skinRefreshKey)
+
+  const navItems = [
+    { id: 'home',       icon: './icons/home.svg',     label: 'Accueil',     badge: newsBadge ?? 0 },
+    { id: 'mods',       icon: './icons/update.svg',   label: 'Mods',        badge: 0 },
+    { id: 'patchnotes', icon: './icons/news.svg',      label: 'Patch Notes', badge: 0 },
+    { id: 'dynmap',     icon: './icons/map.svg',       label: 'Dynmap',      badge: 0 },
+    { id: 'settings',   icon: './icons/settings.svg',  label: 'Paramètres',  badge: 0 },
+    { id: 'logs',       icon: './icons/logs.svg',      label: 'Logs',        badge: 0 },
+  ] as { id: Page; icon: string; label: string; badge: number }[]
 
   return (
     <header className="header">
-      {/* Logo — zone draggable */}
+      {/* Logo */}
       <div className="header__drag">
         <div className="header__logo">
           <img src="./logo32.png" alt="EarthKingdoms" className="header__logo-img" />
@@ -33,12 +44,7 @@ export default function Header({ currentPage, onNavigate, username, onOpenSkin, 
 
       {/* Navigation */}
       <nav className="header__nav">
-        {([
-          { id: 'home',     icon: './icons/home.svg',     label: 'Accueil'    },
-          { id: 'mods',     icon: './icons/update.svg',   label: 'Mods'       },
-          { id: 'settings', icon: './icons/settings.svg', label: 'Paramètres' },
-          { id: 'logs',     icon: './icons/logs.svg',     label: 'Logs'       },
-        ] as { id: Page; icon: string; label: string }[]).map(({ id, icon, label }) => (
+        {navItems.map(({ id, icon, label, badge }) => (
           <button
             key={id}
             className={`header__nav-btn ${currentPage === id ? 'active' : ''}`}
@@ -46,6 +52,9 @@ export default function Header({ currentPage, onNavigate, username, onOpenSkin, 
           >
             <img src={icon} alt="" />
             {label}
+            {badge > 0 && (
+              <span className="header__nav-badge">{badge > 9 ? '9+' : badge}</span>
+            )}
           </button>
         ))}
       </nav>

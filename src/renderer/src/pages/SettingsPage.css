@@ -168,3 +168,93 @@
   font-weight: 500;
   margin-left: 3px;
 }
+
+/* ── Résolution presets ──────────────────────────────── */
+.settings__res-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.settings__res-btn {
+  padding: 5px 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'Rajdhani', sans-serif;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: border-color 150ms, color 150ms, background 150ms;
+}
+.settings__res-btn:hover {
+  border-color: var(--border-bright);
+  color: var(--text-secondary);
+}
+.settings__res-btn--active {
+  border-color: var(--orange);
+  color: var(--orange);
+  background: rgba(236, 130, 0, 0.08);
+}
+.settings__res-custom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+.settings__res-input {
+  width: 90px;
+  padding: 5px 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  color: var(--text);
+  font-size: 13px;
+  font-family: 'Rajdhani', sans-serif;
+  outline: none;
+  transition: border-color 150ms;
+}
+.settings__res-input:focus { border-color: var(--orange); }
+.settings__res-x {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* ── Profils de lancement ───────────────────────────── */
+.settings__profile-select {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-bright);
+  border-radius: 3px;
+  color: var(--text-secondary);
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 5px 10px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 150ms;
+}
+.settings__profile-select:focus { border-color: var(--orange); }
+
+.settings__profile-new {
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.settings__profile-input {
+  flex: 1;
+  min-width: 160px;
+  padding: 6px 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-bright);
+  border-radius: 3px;
+  color: var(--text-secondary);
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 150ms;
+}
+.settings__profile-input:focus { border-color: var(--orange); }
+
