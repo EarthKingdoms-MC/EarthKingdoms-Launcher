@@ -82,6 +82,7 @@ export default function App() {
   const [loadingMsgIdx,      setLoadingMsgIdx]     = useState(0)
   const [newsBadge,          setNewsBadge]         = useState(0)
   const [lastNewsCount,      setLastNewsCount]     = useState(0)
+  const [macUpdateInfo,      setMacUpdateInfo]     = useState<{ version: string; downloadUrl: string } | null>(null)
 
   // Rotation des messages de chargement
   useEffect(() => {
@@ -94,13 +95,21 @@ export default function App() {
   useEffect(() => {
     async function init() {
       try {
-        const [{ available }] = await Promise.all([
-          (window.api as any).updateCheck() as Promise<{ available: boolean }>,
+        const [updateResult] = await Promise.all([
+          (window.api as any).updateCheck() as Promise<{
+            available: boolean
+            macUpdate?: boolean
+            latestVersion?: string
+            downloadUrl?: string
+          }>,
           new Promise(r => setTimeout(r, 1500)),
         ])
-        if (available) {
+        if (updateResult.available) {
           setAppState('updating')
           return
+        }
+        if (updateResult.macUpdate && updateResult.latestVersion && updateResult.downloadUrl) {
+          setMacUpdateInfo({ version: updateResult.latestVersion, downloadUrl: updateResult.downloadUrl })
         }
 
         const storedRam = await window.api.storeGet('ram')
@@ -268,24 +277,73 @@ export default function App() {
     )
   }
 
+  // Écran mise à jour macOS — informer + lien DMG, dismissable
+  if (macUpdateInfo) {
+    return (
+      <div style={{
+        width: '100%', height: '100%',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        gap: 20, background: 'var(--bg-main)',
+      }}>
+        <img src="./logo32.png" style={{ width: 48, height: 48, imageRendering: 'pixelated', opacity: 0.8 }} alt="" />
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', letterSpacing: '0.3px' }}>
+            Mise à jour disponible
+          </span>
+          <span style={{ fontSize: 13, color: 'var(--accent-orange)', fontWeight: 600 }}>
+            v{macUpdateInfo.version}
+          </span>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', maxWidth: 380, lineHeight: 1.6 }}>
+            Une nouvelle version est disponible. Télécharge le fichier <strong>.dmg</strong> et installe-le pour mettre à jour.
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button
+            className="btn-primary"
+            onClick={() => window.api.openExternal(macUpdateInfo.downloadUrl)}
+          >
+            Télécharger v{macUpdateInfo.version}
+          </button>
+          <button
+            className="btn-secondary"
+            onClick={() => setMacUpdateInfo(null)}
+          >
+            Plus tard
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   // Modal "Ajouter un compte" (overlay par-dessus l'app)
   if (showAddAccount) {
+    const closeAddAccount = () => setShowAddAccount(false)
     return (
-      <div className="app" style={{ position: 'relative' }}>
+      <div
+        className="app"
+        style={{ position: 'relative' }}
+        onKeyDown={e => { if (e.key === 'Escape') closeAddAccount() }}
+        tabIndex={-1}
+      >
         <div style={{
           position: 'absolute', inset: 0, zIndex: 200,
           background: 'rgba(14,10,42,0.97)',
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         }}>
-          <div style={{ position: 'absolute', top: 16, right: 16 }}>
-            <button
-              className="btn-secondary"
-              data-sound="close"
-              onClick={() => setShowAddAccount(false)}
-            >
-              ✕ Annuler
-            </button>
-          </div>
+          {/* Bouton retour — position fixe haut gauche, z-index élevé */}
+          <button
+            className="btn-secondary"
+            data-sound="close"
+            onClick={closeAddAccount}
+            style={{
+              position: 'absolute', top: 14, left: 14, zIndex: 201,
+              display: 'flex', alignItems: 'center', gap: 6,
+              fontSize: 13, padding: '6px 14px',
+            }}
+          >
+            ← Retour
+          </button>
+
           <LoginPage onLogin={handleLogin} />
         </div>
       </div>

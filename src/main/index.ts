@@ -453,10 +453,54 @@ ipcMain.handle('bug:captureScreen', async () => {
 })
 
 // ── Auto-update ───────────────────────────────────────────────────────────────
-// Déclenché par le renderer au démarrage — renvoie { available: boolean }
-ipcMain.handle('update:check', () => {
-  if (!app.isPackaged || process.platform === 'darwin') return Promise.resolve({ available: false })
 
+function isNewerVersion(latest: string, current: string): boolean {
+  const parse = (v: string) => v.replace(/^v/, '').split('.').map(Number)
+  const l = parse(latest)
+  const c = parse(current)
+  for (let i = 0; i < Math.max(l.length, c.length); i++) {
+    const lv = l[i] ?? 0
+    const cv = c[i] ?? 0
+    if (lv > cv) return true
+    if (lv < cv) return false
+  }
+  return false
+}
+
+// Déclenché par le renderer au démarrage
+// Retourne { available: boolean } ou { available: false, macUpdate: true, latestVersion, downloadUrl }
+ipcMain.handle('update:check', async () => {
+  if (!app.isPackaged) return { available: false }
+
+  // macOS — auto-update désactivé (pas de signature Apple)
+  // On vérifie quand même via l'API GitHub pour informer l'utilisateur
+  if (process.platform === 'darwin') {
+    try {
+      const res = await Promise.race([
+        net.fetch('https://api.github.com/repos/EarthKingdoms-MC/EarthKingdoms-Launcher/releases/latest', {
+          headers: { 'User-Agent': `EarthKingdoms-Launcher/${app.getVersion()}` },
+        }),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000)),
+      ])
+      if (!res.ok) return { available: false }
+      const data = await res.json() as {
+        tag_name: string
+        assets: Array<{ name: string; browser_download_url: string }>
+      }
+      const latestVersion  = data.tag_name.replace(/^v/, '')
+      const currentVersion = app.getVersion()
+      if (!isNewerVersion(latestVersion, currentVersion)) return { available: false }
+      const dmgAsset  = data.assets.find(a => a.name.endsWith('.dmg'))
+      const downloadUrl = dmgAsset?.browser_download_url
+        ?? 'https://github.com/EarthKingdoms-MC/EarthKingdoms-Launcher/releases/latest'
+      wlog(`macOS update: v${currentVersion} → v${latestVersion}`)
+      return { available: false, macUpdate: true, latestVersion, downloadUrl }
+    } catch {
+      return { available: false }
+    }
+  }
+
+  // Windows + Linux — electron-updater silencieux
   return new Promise<{ available: boolean }>((resolve) => {
     let done = false
     const finish = (available: boolean) => {
