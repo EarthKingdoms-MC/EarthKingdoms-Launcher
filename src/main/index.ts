@@ -1,10 +1,13 @@
 import { app, BrowserWindow, dialog, ipcMain, net, shell, Notification } from 'electron'
 import { join }    from 'path'
+
+// Permet l'autoplay audio sans geste utilisateur → préchauffage pipeline au démarrage
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required')
 import { appendFileSync, mkdirSync, readdirSync, statSync, unlinkSync } from 'fs'
 import { totalmem } from 'os'
 import { request as httpsRequest } from 'https'
 import { store }   from './store'
-import { login, logout, getAccount } from './auth'
+import { login, logout, getAccount, getActiveAccount, getAccounts, switchAccount, removeAccount } from './auth'
 import { startLaunch, stopLaunch, isRunning } from './launcherCore'
 import { autoUpdater } from 'electron-updater'
 import type { Account, LaunchProfile } from './store'
@@ -183,7 +186,7 @@ ipcMain.handle('skin:loadUrl', async (_e, url: string) => {
 })
 
 ipcMain.handle('skin:historyList', async () => {
-  const account = store.get('account') as Account | null
+  const account = getActiveAccount()
   if (!account) return { ok: false, error: 'Non connecté.' }
   try {
     const res = await net.fetch('https://earthkingdoms-mc.fr/api/skin/history/list', {
@@ -198,7 +201,7 @@ ipcMain.handle('skin:historyList', async () => {
 })
 
 ipcMain.handle('skin:historyRestore', async (_e, historyId: string) => {
-  const account = store.get('account') as Account | null
+  const account = getActiveAccount()
   if (!account) return { ok: false, error: 'Non connecté.' }
   try {
     const res = await net.fetch(`https://earthkingdoms-mc.fr/api/skin/history/restore/${encodeURIComponent(historyId)}`, {
@@ -216,8 +219,7 @@ ipcMain.handle('skin:historyRestore', async (_e, historyId: string) => {
 })
 
 ipcMain.handle('skin:upload', async (_e, fileData: number[]) => {
-  // Utilise directement le store (comme launch:start) — getAccount() peut changer le token via refresh
-  const account = store.get('account') as Account | null
+  const account = getActiveAccount()
   if (!account) return { ok: false, error: 'Non connecté. Reconnecte-toi dans le launcher.' }
 
   const now = Math.floor(Date.now() / 1000)
@@ -276,7 +278,7 @@ ipcMain.handle('skin:upload', async (_e, fileData: number[]) => {
 
 // ── Lancement Minecraft ───────────────────────────────────────────────────────
 ipcMain.handle('launch:start', () => {
-  const account = store.get('account') as Account | null
+  const account = getActiveAccount()
   if (!account) return { ok: false, error: 'Non connecté.' }
 
   const ram      = (store.get('ram')      as number)        || 4
@@ -424,6 +426,30 @@ ipcMain.handle('profiles:delete', (_e, id: string) => {
 
 ipcMain.handle('profiles:setActive', (_e, id: string) => {
   store.set('activeProfileId', id)
+})
+
+// ── Multicompte ────────────────────────────────────────────────────────────────
+ipcMain.handle('auth:getAccounts', () => getAccounts())
+
+ipcMain.handle('auth:switchAccount', (_e, uuid: string) => {
+  const account = switchAccount(uuid)
+  return account ? { ok: true, account } : { ok: false }
+})
+
+ipcMain.handle('auth:removeAccount', (_e, uuid: string) => {
+  const next = removeAccount(uuid)
+  return { ok: true, nextAccount: next }
+})
+
+// ── Rapport de bug ──────────────────────────────────────────────────────────
+ipcMain.handle('bug:captureScreen', async () => {
+  if (!mainWindow) return null
+  try {
+    const img = await mainWindow.webContents.capturePage()
+    return img.toDataURL()
+  } catch {
+    return null
+  }
 })
 
 // ── Auto-update ───────────────────────────────────────────────────────────────

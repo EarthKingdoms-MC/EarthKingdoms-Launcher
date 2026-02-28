@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import './HomePage.css'
 import { useNews }             from '../hooks/useNews'
 import { useServerStatus }     from '../hooks/useServerStatus'
@@ -15,10 +15,12 @@ export default function HomePage() {
   const { news, loading: newsLoading }     = useNews()
   const { status, loading: serverLoading } = useServerStatus()
 
-  const [launching,  setLaunching]  = useState(false)
-  const [progress,   setProgress]   = useState(-1)  // -1 = indéterminé
-  const [stepLabel,  setStepLabel]  = useState('')
-  const [launchErr,  setLaunchErr]  = useState('')
+  const [launching,    setLaunching]    = useState(false)
+  const [progress,     setProgress]     = useState(-1)  // -1 = indéterminé
+  const [stepLabel,    setStepLabel]    = useState('')
+  const [launchErr,    setLaunchErr]    = useState('')
+  const [verifiedOnly, setVerifiedOnly] = useState(false)  // true = vérif terminée sans téléchargement
+  const hadDownload = useRef(false)
 
   const dotState    = serverLoading ? 'loading' : status.online ? 'online' : 'offline'
   const playerCount = status.online ? status.players    : 0
@@ -40,12 +42,20 @@ export default function HomePage() {
   useEffect(() => {
     const onProgress = (data: LaunchProgressEvent) => {
       if (data.event === 'speed') return
-      // task peut valoir 0 au début — on normalise sans court-circuit sur 0
+      // Track si un téléchargement réel a eu lieu
+      if (data.event !== 'check') hadDownload.current = true
       const pct = (data.total != null && data.total > 0)
         ? Math.min(100, Math.round(((data.task ?? 0) / data.total) * 100))
-        : -1  // -1 = indéterminé (pas d'info de total)
+        : -1
       setProgress(pct)
-      setStepLabel(STEP_LABELS[data.event] ?? 'Préparation…')
+      // Indicateur "Fichiers vérifiés ✓" si check terminé sans download
+      if (data.event === 'check' && pct === 100 && !hadDownload.current) {
+        setStepLabel('✓ Fichiers vérifiés')
+        setVerifiedOnly(true)
+      } else {
+        setStepLabel(STEP_LABELS[data.event] ?? 'Préparation…')
+        if (data.event !== 'check') setVerifiedOnly(false)
+      }
     }
 
     const onState = (data: { running: boolean }) => {
@@ -80,6 +90,8 @@ export default function HomePage() {
     setLaunching(true)
     setProgress(-1)
     setStepLabel('Initialisation…')
+    setVerifiedOnly(false)
+    hadDownload.current = false
 
     const result = await window.api.launchStart()
     if (!result.ok) {
@@ -133,6 +145,7 @@ export default function HomePage() {
           {!launching ? (
             <button
               className="btn-play"
+              data-sound="play"
               onClick={handlePlay}
               disabled={!status.online && !serverLoading}
             >
@@ -144,8 +157,10 @@ export default function HomePage() {
           ) : (
             <div className="home__loading">
               <div className="home__loading-label">
-                <span>{stepLabel || 'Préparation…'}</span>
-                {progress >= 0 && <span className="home__loading-pct">{progress}%</span>}
+                <span style={verifiedOnly ? { color: 'var(--success)' } : undefined}>
+                  {stepLabel || 'Préparation…'}
+                </span>
+                {progress >= 0 && !verifiedOnly && <span className="home__loading-pct">{progress}%</span>}
               </div>
               <div className={`progress-bar${progress < 0 ? ' progress-bar--indeterminate' : ''}`}>
                 <div

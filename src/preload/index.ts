@@ -17,9 +17,12 @@ contextBridge.exposeInMainWorld('api', {
   storeSet: (key: string, value: unknown) => ipcRenderer.invoke('store:set', key, value),
 
   // Authentification
-  authLogin:      (username: string, password: string) => ipcRenderer.invoke('auth:login', username, password),
-  authGetAccount: ()                                   => ipcRenderer.invoke('auth:getAccount'),
-  authLogout:     ()                                   => ipcRenderer.invoke('auth:logout'),
+  authLogin:         (username: string, password: string) => ipcRenderer.invoke('auth:login', username, password),
+  authGetAccount:    ()                                   => ipcRenderer.invoke('auth:getAccount'),
+  authLogout:        ()                                   => ipcRenderer.invoke('auth:logout'),
+  authGetAccounts:   ()                                   => ipcRenderer.invoke('auth:getAccounts'),
+  authSwitchAccount: (uuid: string)                       => ipcRenderer.invoke('auth:switchAccount', uuid),
+  authRemoveAccount: (uuid: string)                       => ipcRenderer.invoke('auth:removeAccount', uuid),
 
   // Statut serveur
   serverStatus: () => ipcRenderer.invoke('server:status'),
@@ -62,6 +65,9 @@ contextBridge.exposeInMainWorld('api', {
 
   // Patch notes
   patchnotesLoad: () => ipcRenderer.invoke('patchnotes:load'),
+
+  // Rapport de bug
+  bugCaptureScreen: () => ipcRenderer.invoke('bug:captureScreen'),
 
   // Profils de lancement
   profilesList:      ()                    => ipcRenderer.invoke('profiles:list'),

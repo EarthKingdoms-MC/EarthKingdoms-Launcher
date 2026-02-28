@@ -186,6 +186,156 @@
   pointer-events: none;
 }
 
+/* ── Account dropdown ───────────────────────────────── */
+.header__profile-wrap {
+  position: relative;
+}
+
+.header__account-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+}
+
+.header__account-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 200px;
+  background: rgba(14,10,42,0.98);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px;
+  z-index: 201;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+}
+
+.header__account-menu-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 4px 8px 6px;
+}
+
+.header__account-menu-sep {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+
+.header__account-item {
+  display: flex;
+  align-items: center;
+  border-radius: 5px;
+  overflow: hidden;
+}
+.header__account-item--active {
+  background: rgba(236,130,0,0.08);
+}
+
+.header__account-switch {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  border-radius: 5px;
+  transition: color 150ms, background 150ms;
+  -webkit-app-region: no-drag;
+}
+.header__account-switch:hover:not(:disabled) {
+  background: rgba(255,255,255,0.06);
+  color: var(--text);
+}
+.header__account-switch:disabled {
+  color: var(--text);
+  cursor: default;
+}
+
+.header__account-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--border);
+  flex-shrink: 0;
+}
+.header__account-item--active .header__account-dot {
+  background: var(--orange);
+  box-shadow: 0 0 6px rgba(236,130,0,0.6);
+}
+
+.header__account-admin {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--orange);
+  border: 1px solid rgba(236,130,0,0.4);
+  border-radius: 3px;
+  padding: 1px 4px;
+  margin-left: auto;
+}
+
+.header__account-remove {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: color 150ms, background 150ms;
+  margin-right: 2px;
+  -webkit-app-region: no-drag;
+}
+.header__account-remove:hover {
+  color: var(--error);
+  background: rgba(231,76,60,0.1);
+}
+
+.header__account-action {
+  display: block;
+  width: 100%;
+  padding: 7px 10px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  text-align: left;
+  border-radius: 5px;
+  transition: color 150ms, background 150ms;
+  -webkit-app-region: no-drag;
+}
+.header__account-action:hover {
+  background: rgba(255,255,255,0.06);
+  color: var(--text);
+}
+.header__account-action--danger {
+  color: rgba(231,76,60,0.7);
+}
+.header__account-action--danger:hover {
+  background: rgba(231,76,60,0.08);
+  color: var(--error);
+}
+
 /* ── Contrôles fenêtre ──────────────────────────────── */
 .header__window-controls { display: flex; margin-left: 6px; }
 .header__window-controls button {

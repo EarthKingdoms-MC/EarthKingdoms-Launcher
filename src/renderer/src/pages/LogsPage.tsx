@@ -41,11 +41,16 @@ function parseLine(raw: string): LogEntry {
 }
 
 export default function LogsPage() {
-  const [logs,       setLogs]       = useState<LogEntry[]>([
+  const [logs,          setLogs]          = useState<LogEntry[]>([
     { time: now(), level: 'info', msg: 'Launcher prêt — en attente de lancement.' }
   ])
-  const [autoScroll, setAutoScroll] = useState(true)
-  const [crash,      setCrash]      = useState<string | null>(null)
+  const [autoScroll,    setAutoScroll]    = useState(true)
+  const [crash,         setCrash]         = useState<string | null>(null)
+  const [showBugModal,  setShowBugModal]  = useState(false)
+  const [bugScreenshot, setBugScreenshot] = useState<string | null>(null)
+  const [bugDesc,       setBugDesc]       = useState('')
+  const [bugSending,    setBugSending]    = useState(false)
+  const [appVersion,    setAppVersion]    = useState('?')
   const bottomRef = useRef<HTMLDivElement>(null)
 
   // Auto-scroll
@@ -53,13 +58,14 @@ export default function LogsPage() {
     if (autoScroll) bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [logs, autoScroll])
 
-  // Charge les logs déjà bufferisés côté main (arrivés avant le montage du composant)
+  // Charge les logs et la version au montage
   useEffect(() => {
     window.api.logsGetAll().then(lines => {
       if (lines.length === 0) return
       const entries = lines.flatMap(l => l.split('\n').filter(s => s.trim()).map(parseLine))
       setLogs(prev => [...prev, ...entries])
     })
+    window.api.appVersion().then(v => setAppVersion(v)).catch(() => {})
   }, [])
 
   // Abonnement aux nouveaux logs Minecraft + détection crash
@@ -109,6 +115,34 @@ export default function LogsPage() {
     navigator.clipboard.writeText(text).catch(() => {})
   }
 
+  async function openBugModal() {
+    setBugDesc('')
+    setBugSending(false)
+    setBugScreenshot(null)
+    setShowBugModal(true)
+    try {
+      const shot = await window.api.bugCaptureScreen()
+      setBugScreenshot(shot)
+    } catch { /* pas de screenshot */ }
+  }
+
+  function handleSendBug() {
+    if (!bugDesc.trim() || bugSending) return
+    setBugSending(true)
+    const last30 = logs.slice(-30).map(l => `[${l.time}] [${l.level.toUpperCase()}] ${l.msg}`).join('\n')
+    const rawBody = [
+      `## Description\n${bugDesc.trim()}`,
+      `## Informations\n- Version launcher : v${appVersion}\n- Plateforme : ${navigator.userAgent}`,
+      `## Logs (dernières 30 lignes)\n\`\`\`\n${last30}\n\`\`\``,
+    ].join('\n\n')
+    const body = rawBody.slice(0, 4000)
+    const title = encodeURIComponent(`Bug report v${appVersion}`)
+    const url = `https://github.com/EarthKingdoms-MC/EarthKingdoms-Launcher/issues/new?title=${title}&body=${encodeURIComponent(body)}`
+    window.api.openExternal(url)
+    setShowBugModal(false)
+    setBugSending(false)
+  }
+
   return (
     <div className="logs">
       <div className="logs__toolbar">
@@ -120,6 +154,13 @@ export default function LogsPage() {
         <button className="btn-secondary" onClick={handleCopy}>Copier</button>
         <button className="btn-secondary" onClick={handleClear}>Effacer</button>
         <button className="btn-secondary" onClick={() => window.api.logsOpenDir()}>Ouvrir dossier</button>
+        <button className="btn-secondary logs__bug-btn" onClick={openBugModal}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          Signaler un bug
+        </button>
       </div>
 
       {crash && (
@@ -144,6 +185,64 @@ export default function LogsPage() {
         ))}
         <div ref={bottomRef} />
       </div>
+
+      {showBugModal && (
+        <div className="logs__bug-backdrop">
+          <div className="logs__bug-modal">
+            <div className="logs__bug-header">
+              <span className="logs__bug-title">Signaler un bug</span>
+              <button
+                className="logs__bug-close"
+                data-sound="close"
+                onClick={() => setShowBugModal(false)}
+                title="Fermer"
+              >✕</button>
+            </div>
+
+            {bugScreenshot && (
+              <div className="logs__bug-screenshot">
+                <img src={bugScreenshot} alt="Screenshot" />
+              </div>
+            )}
+
+            <textarea
+              className="logs__bug-desc"
+              placeholder="Décris le bug : que faisais-tu ? Qu'as-tu observé ?"
+              value={bugDesc}
+              onChange={e => setBugDesc(e.target.value)}
+              rows={4}
+              autoFocus
+            />
+
+            <div className="logs__bug-preview-label">Aperçu des logs (30 dernières lignes)</div>
+            <div className="logs__bug-preview">
+              {logs.slice(-30).map((l, i) => (
+                <div key={i} className={`logs__bug-log logs__bug-log--${l.level}`}>
+                  [{l.time}] [{l.level.toUpperCase()}] {l.msg}
+                </div>
+              ))}
+            </div>
+
+            <div className="logs__bug-actions">
+              <button
+                className="btn-secondary"
+                data-sound="close"
+                onClick={() => setShowBugModal(false)}
+              >Annuler</button>
+              <button
+                className="btn-secondary logs__bug-send"
+                onClick={handleSendBug}
+                disabled={!bugDesc.trim() || bugSending}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
+                </svg>
+                Ouvrir sur GitHub
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

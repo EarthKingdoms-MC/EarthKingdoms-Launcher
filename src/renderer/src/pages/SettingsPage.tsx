@@ -1,6 +1,7 @@
 import './SettingsPage.css'
 import { useState, useRef, useEffect } from 'react'
 import type { LaunchProfile } from '../hooks/useSkin'
+import { setSoundEnabled } from '../utils/sounds'
 
 function ramHint(ram: number): string {
   if (ram < 4)  return 'En dessous du minimum — risque de lag et de crash.'
@@ -53,6 +54,7 @@ export default function SettingsPage({
   const [activeProfileId, setActiveProfileId] = useState('default')
   const [newProfileName,  setNewProfileName]  = useState('')
   const [showNewProfile,  setShowNewProfile]  = useState(false)
+  const [soundOn,         setSoundOn]         = useState(true)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const dirty =
@@ -72,10 +74,13 @@ export default function SettingsPage({
   // Nettoyage timer à la destruction
   useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current) }, [])
 
-  // Charge la RAM système et les profils au montage
+  // Charge la RAM système, les profils et le son au montage
   useEffect(() => {
     window.api.systemTotalRam().then(v => setTotalRam(v)).catch(() => {})
     loadProfiles()
+    window.api.storeGet('soundEnabled').then(v => {
+      if (v !== undefined && v !== null) setSoundOn(Boolean(v))
+    }).catch(() => {})
   }, [])
 
   const recommendedRam = totalRam
@@ -132,6 +137,13 @@ export default function SettingsPage({
       setJavaPath(def.javaPath)
       setResPreset(getPresetIndex(def.resW, def.resH))
     }
+  }
+
+  async function handleToggleSound() {
+    const next = !soundOn
+    setSoundOn(next)
+    setSoundEnabled(next)
+    await window.api.storeSet('soundEnabled', next)
   }
 
   const ramFill = ((ram - 2) / 14) * 100
@@ -240,6 +252,29 @@ export default function SettingsPage({
           <span className="settings__hint" style={{ padding: '2px 16px 0' }}>
             Sauvegarde différentes configurations (RAM, résolution, Java).
           </span>
+        </section>
+
+        {/* ── Sons UI ─────────────────────────────────────── */}
+        <section className="settings__section">
+          <h2 className="settings__section-title">
+            <img src="./icons/settings.svg" alt="" style={{ width: 16, height: 16, filter: 'invert(1)', opacity: 0.6 }} />
+            Interface
+          </h2>
+          <div className="settings__row">
+            <div>
+              <label>Sons de l'interface</label>
+              <span className="settings__hint">Sons synthétiques sur les boutons, le lancement et les modales.</span>
+            </div>
+            <button
+              className={`settings__toggle ${soundOn ? 'settings__toggle--on' : ''}`}
+              onClick={handleToggleSound}
+              role="switch"
+              aria-checked={soundOn}
+              title={soundOn ? 'Désactiver les sons' : 'Activer les sons'}
+            >
+              <span className="settings__toggle-knob" />
+            </button>
+          </div>
         </section>
 
         {/* ── RAM ─────────────────────────────────────────── */}

@@ -258,3 +258,40 @@
 }
 .settings__profile-input:focus { border-color: var(--orange); }
 
+/* ── Toggle switch sons ──────────────────────────────── */
+.settings__toggle {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-bright);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 200ms, border-color 200ms;
+  flex-shrink: 0;
+  padding: 0;
+}
+.settings__toggle--on {
+  background: rgba(236,130,0,0.2);
+  border-color: var(--orange);
+}
+.settings__toggle-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  background: var(--text-muted);
+  border-radius: 50%;
+  transition: transform 200ms, background 200ms;
+  pointer-events: none;
+}
+.settings__toggle--on .settings__toggle-knob {
+  transform: translateX(18px);
+  background: var(--orange);
+  box-shadow: 0 0 6px rgba(236,130,0,0.6);
+}
+
+.settings__hint--rec {
+  color: var(--text-muted);
+}

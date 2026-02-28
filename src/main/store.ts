@@ -22,7 +22,10 @@ interface Schema {
   resolutionWidth:        number
   resolutionHeight:       number
   javaPath:               string | null
-  account:                Account | null
+  account:                Account | null        // legacy — conservé pour migration
+  accounts:               Account[]
+  activeAccountId:        string | null
+  soundEnabled:           boolean
   enabledOptionalMods:    string[]
   optionalModsConfigured: boolean
   lastSeenNewsCount:      number
@@ -37,6 +40,9 @@ export const store = new Store<Schema>({
     resolutionHeight:       480,
     javaPath:               null,
     account:                null,
+    accounts:               [],
+    activeAccountId:        null,
+    soundEnabled:           true,
     enabledOptionalMods:    [],
     optionalModsConfigured: false,
     lastSeenNewsCount:      0,

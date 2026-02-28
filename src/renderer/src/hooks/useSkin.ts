@@ -58,6 +58,11 @@ declare global {
       authLogin(username: string, password: string): Promise<AuthLoginResult>
       authGetAccount(): Promise<Account | null>
       authLogout(): Promise<void>
+      authGetAccounts(): Promise<Array<{ username: string; uuid: string; isAdmin: boolean }>>
+      authSwitchAccount(uuid: string): Promise<{ ok: boolean; account?: Account }>
+      authRemoveAccount(uuid: string): Promise<{ ok: boolean; nextAccount?: Account | null }>
+
+      bugCaptureScreen(): Promise<string | null>
 
       serverStatus(): Promise<ServerStatus | { online: false }>
 
