@@ -164,7 +164,7 @@ ipcMain.handle('news:load', async () => {
 // ── Skin (contourne CSP/CORS) ─────────────────────────────────────────────────
 ipcMain.handle('skin:load', async (_e, username: string) => {
   try {
-    const res = await net.fetch(`https://earthkingdoms-mc.fr/skins/${username}.png?t=${Date.now()}`)
+    const res = await net.fetch(`https://earthkingdoms-mc.fr/skins/${username}.png`)
     if (!res.ok) return null
     const buf = await res.arrayBuffer()
     return `data:image/png;base64,${Buffer.from(buf).toString('base64')}`
@@ -176,7 +176,7 @@ ipcMain.handle('skin:load', async (_e, username: string) => {
 ipcMain.handle('skin:loadUrl', async (_e, url: string) => {
   try {
     const fullUrl = url.startsWith('http') ? url : `https://earthkingdoms-mc.fr${url}`
-    const res = await net.fetch(`${fullUrl}?t=${Date.now()}`)
+    const res = await net.fetch(fullUrl)
     if (!res.ok) return null
     const buf = await res.arrayBuffer()
     return `data:image/png;base64,${Buffer.from(buf).toString('base64')}`
