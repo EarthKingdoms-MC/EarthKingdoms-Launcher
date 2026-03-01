@@ -78,8 +78,22 @@
   font-size: 16px;
   letter-spacing: 0.5px;
   line-height: 1;
-  vertical-align: middle;
+  vertical-align: baseline;
   color: var(--text);
+}
+
+/* Conteneur inline-flex pour aligner nombre + texte sur la même ligne de base */
+.home__status-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Icône ping + label regroupés et centrés verticalement */
+.home__ping-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .home__dot {
@@ -105,7 +119,7 @@
 
 /* ── MOTD ───────────────────────────────────────────── */
 .home__motd {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-secondary);
   letter-spacing: 0.3px;
   font-weight: 400;

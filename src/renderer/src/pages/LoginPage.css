@@ -9,6 +9,37 @@
   overflow: hidden;
 }
 
+/* Barre de titre avec contrôles fenêtre */
+.login__titlebar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  z-index: 10;
+  -webkit-app-region: drag;
+}
+.login__titlebar-controls {
+  display: flex;
+  -webkit-app-region: no-drag;
+}
+.login__titlebar-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  width: 36px;
+  height: 36px;
+  font-size: 20px;
+  cursor: pointer;
+  transition: background 150ms, color 150ms;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.login__titlebar-btn:hover { background: rgba(255,255,255,0.07); color: var(--text); }
+.login__titlebar-btn.close:hover { background: var(--error); color: #fff; }
+
 /* Grille chunk en fond */
 .login__bg {
   position: absolute;
@@ -26,6 +57,7 @@
 .login__card {
   position: relative;
   z-index: 1;
+  -webkit-app-region: no-drag;
   width: 360px;
   padding: 40px 36px;
   background: var(--bg-surface);
@@ -55,7 +87,7 @@
 .login__title span { color: var(--orange); }
 
 .login__subtitle {
-  font-size: 12px;
+  font-size: 15px;
   color: var(--text-muted);
   letter-spacing: 1px;
   margin-bottom: 16px;
@@ -130,7 +162,7 @@
 /* Lien inscription */
 .login__register {
   margin-top: 12px;
-  font-size: 12px;
+  font-size: 15px;
   color: var(--text-muted);
   cursor: pointer;
   transition: color 180ms;

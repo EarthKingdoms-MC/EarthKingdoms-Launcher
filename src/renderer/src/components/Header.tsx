@@ -18,6 +18,7 @@ interface Props {
   onNavigate:       (p: Page) => void
   username:         string
   skinRefreshKey?:  number
+  overrideHeadUrl?: string | null
   onOpenSkin:       () => void
   onLogout?:        () => void
   newsBadge?:       number
@@ -29,10 +30,11 @@ interface Props {
 }
 
 export default function Header({
-  currentPage, onNavigate, username, skinRefreshKey, onOpenSkin, onLogout,
+  currentPage, onNavigate, username, skinRefreshKey, overrideHeadUrl, onOpenSkin, onLogout,
   newsBadge, accounts = [], activeUuid, onSwitchAccount, onAddAccount, onRemoveAccount,
 }: Props) {
-  const headUrl = useSkinHead(username, skinRefreshKey)
+  const fetchedHeadUrl = useSkinHead(username, skinRefreshKey)
+  const headUrl = overrideHeadUrl ?? fetchedHeadUrl
   const [showAccountMenu, setShowAccountMenu] = useState(false)
 
   const navItems = [
@@ -101,7 +103,7 @@ export default function Header({
             }
             <span className="header__username">{username}</span>
             {(accounts.length > 1 || onAddAccount) && (
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style={{ marginLeft: 2, opacity: 0.5 }}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style={{ marginLeft: 2, opacity: 0.85 }}>
                 <path d="M7 10l5 5 5-5z"/>
               </svg>
             )}

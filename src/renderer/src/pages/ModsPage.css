@@ -148,8 +148,9 @@
 /* ── Bouton toggle style Minecraft ──────────────────────────────────────────── */
 .mod-toggle {
   flex-shrink: 0;
-  font-family: 'VT323', monospace;
-  font-size: 22px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
   letter-spacing: 2px;
   padding: 10px 28px;
   border: none;

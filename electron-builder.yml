@@ -1,5 +1,5 @@
 appId: com.earthkingdoms.launcher
-productName: EarthKingdoms
+productName: EarthKingdoms Launcher
 publish:
   provider: github
   owner: EarthKingdoms-MC

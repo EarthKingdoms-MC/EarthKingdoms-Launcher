@@ -6,7 +6,7 @@ import './SkinModal.css'
 interface Props {
   username:        string
   skinRefreshKey?: number
-  onSkinUploaded?: () => void
+  onSkinUploaded?: (textureDataUrl?: string) => void
   onClose:         () => void
 }
 
@@ -77,11 +77,16 @@ export default function SkinModal({ username, skinRefreshKey, onSkinUploaded, on
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // refreshKey local : incrémenté après upload ou restore pour recharger aperçu + historique
-  const [localRefreshKey, setLocalRefreshKey] = useState(skinRefreshKey ?? 0)
+  const [localRefreshKey,  setLocalRefreshKey]  = useState(skinRefreshKey ?? 0)
+  // Texture directement issue du fichier uploadé — évite le round-trip réseau pour l'aperçu
+  const [uploadedTexture,  setUploadedTexture]  = useState<string | null>(null)
 
   const headUrl    = useSkinHead(username, localRefreshKey)
   const textureUrl = useSkinTexture(username, localRefreshKey)
   const skinUrl    = getSkinUrl(username)
+
+  // Texture effective : préférer la donnée locale du fichier uploadé si disponible
+  const effectiveTexture = uploadedTexture ?? textureUrl
 
   // Nettoyage object URL à la destruction
   useEffect(() => {
@@ -133,9 +138,18 @@ export default function SkinModal({ username, skinRefreshKey, onSkinUploaded, on
       const result = await window.api.skinUpload(data)
       if (result.ok) {
         setUploadState('success')
+        // Lecture locale immédiate — affichage sans attendre le fetch réseau
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          const dataUrl = e.target?.result as string | undefined
+          if (dataUrl) {
+            setUploadedTexture(dataUrl)
+            onSkinUploaded?.(dataUrl)
+          }
+        }
+        reader.readAsDataURL(selectedFile)
         const next = localRefreshKey + 1
         setLocalRefreshKey(next)
-        onSkinUploaded?.()
         loadHistory()
       } else {
         setServerError(result.error ?? 'Erreur serveur inconnue.')
@@ -153,6 +167,7 @@ export default function SkinModal({ username, skinRefreshKey, onSkinUploaded, on
     setRestoring(sid)
     const result = await window.api.skinHistoryRestore(sid)
     if (result.ok) {
+      setUploadedTexture(null)
       const next = localRefreshKey + 1
       setLocalRefreshKey(next)
       onSkinUploaded?.()
@@ -167,6 +182,7 @@ export default function SkinModal({ username, skinRefreshKey, onSkinUploaded, on
     setValidError(null)
     setServerError(null)
     setUploadState('idle')
+    setUploadedTexture(null)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
@@ -199,8 +215,8 @@ export default function SkinModal({ username, skinRefreshKey, onSkinUploaded, on
         {tab === 'apercu' && (
           <div className="skinm__preview">
             <div className="skinm__skin-frame">
-              {textureUrl
-                ? <img src={textureUrl} alt="Skin texture" className="skinm__skin-texture" />
+              {effectiveTexture
+                ? <img src={effectiveTexture} alt="Skin texture" className="skinm__skin-texture" />
                 : <div className="skinm__skin-texture skinm__skin-texture--loading" />
               }
               <span className="skinm__skin-label">Texture brute</span>
@@ -219,10 +235,11 @@ export default function SkinModal({ username, skinRefreshKey, onSkinUploaded, on
                 <span className="skinm__info-key">Modèle</span>
                 <span className="skinm__info-val">Steve (classique)</span>
               </div>
-              {textureUrl ? (
+              {effectiveTexture ? (
                 <div className="skinm__3d-wrap">
                   <ReactSkinview3d
-                    skinUrl={textureUrl}
+                    key={localRefreshKey}
+                    skinUrl={effectiveTexture}
                     width={135}
                     height={180}
                     onReady={({ viewer }) => {

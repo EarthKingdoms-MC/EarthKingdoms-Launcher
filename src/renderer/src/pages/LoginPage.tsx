@@ -53,6 +53,13 @@ export default function LoginPage({ onLogin }: Props) {
 
   return (
     <div className="login">
+      <div className="login__titlebar">
+        <div className="login__titlebar-controls">
+          <button className="login__titlebar-btn" onClick={() => window.api.minimize()} title="Réduire">─</button>
+          <button className="login__titlebar-btn" onClick={() => window.api.maximize()} title="Agrandir">□</button>
+          <button className="login__titlebar-btn close" onClick={() => window.api.close()} title="Fermer">✕</button>
+        </div>
+      </div>
       <div className="login__bg" />
       <div className="login__card">
         <img src="./logo32.png" alt="EarthKingdoms" className="login__logo" />

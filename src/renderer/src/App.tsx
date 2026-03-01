@@ -83,6 +83,8 @@ export default function App() {
   const [newsBadge,          setNewsBadge]         = useState(0)
   const [lastNewsCount,      setLastNewsCount]     = useState(0)
   const [macUpdateInfo,      setMacUpdateInfo]     = useState<{ version: string; downloadUrl: string } | null>(null)
+  const [updateProgress,     setUpdateProgress]    = useState(-1)
+  const [overrideHeadUrl,    setOverrideHeadUrl]   = useState<string | null>(null)
 
   // Rotation des messages de chargement
   useEffect(() => {
@@ -163,6 +165,14 @@ export default function App() {
     checkNews()
   }, [appState])
 
+  // Progression téléchargement de la mise à jour
+  useEffect(() => {
+    if (appState !== 'updating') return
+    const onProgress = (pct: number) => setUpdateProgress(pct)
+    window.api.on('update:progress', onProgress as (a: unknown) => void)
+    return () => window.api.off('update:progress', onProgress as (a: unknown) => void)
+  }, [appState])
+
   // Son de fermeture MC
   useEffect(() => {
     if (appState !== 'app') return
@@ -210,6 +220,7 @@ export default function App() {
   }
 
   async function handleSwitchAccount(uuid: string) {
+    setOverrideHeadUrl(null)
     const result = await window.api.authSwitchAccount(uuid)
     if (result.ok && result.account) {
       setAccount(result.account)
@@ -255,8 +266,25 @@ export default function App() {
     await window.api.storeSet('javaPath', path)
   }
 
-  function handleSkinUploaded() {
+  function handleSkinUploaded(textureDataUrl?: string) {
     setSkinRefreshKey(k => k + 1)
+    if (textureDataUrl) {
+      // Calcul de la head directement depuis la texture locale — pas de round-trip serveur
+      const img = new Image()
+      img.onload = () => {
+        const cvs = document.createElement('canvas')
+        cvs.width  = 8
+        cvs.height = 8
+        const ctx = cvs.getContext('2d')!
+        ctx.imageSmoothingEnabled = false
+        ctx.drawImage(img, 8,  8, 8, 8, 0, 0, 8, 8)  // face base
+        ctx.drawImage(img, 40, 8, 8, 8, 0, 0, 8, 8)  // hat overlay
+        setOverrideHeadUrl(cvs.toDataURL())
+      }
+      img.src = textureDataUrl
+    } else {
+      setOverrideHeadUrl(null)
+    }
   }
 
   // Écran de chargement initial
@@ -265,14 +293,29 @@ export default function App() {
       <div style={{
         width: '100%', height: '100%',
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        gap: 16, background: 'var(--bg-main)'
+        gap: 20, background: 'var(--bg-main)'
       }}>
         <img src="./logo32.png" style={{ width: 48, height: 48, imageRendering: 'pixelated', opacity: 0.8 }} alt="" />
-        <span style={{ fontSize: 12, color: 'var(--text-muted)', letterSpacing: '0.5px' }}>
+        <span style={{ fontSize: 14, color: 'var(--text-secondary)', letterSpacing: '0.5px' }}>
           {appState === 'updating'
             ? <span style={{ color: 'var(--warning)' }}>Mise à jour en cours…</span>
             : LOADING_MSGS[loadingMsgIdx]}
         </span>
+        {appState === 'updating' && (
+          <div style={{ width: 280, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div className={`progress-bar${updateProgress < 0 ? ' progress-bar--indeterminate' : ''}`}>
+              <div
+                className="progress-bar__fill"
+                style={{ width: updateProgress >= 0 ? `${Math.max(updateProgress, 2)}%` : '100%' }}
+              />
+            </div>
+            {updateProgress >= 0 && (
+              <span style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', letterSpacing: '0.3px' }}>
+                {updateProgress}%
+              </span>
+            )}
+          </div>
+        )}
       </div>
     )
   }
@@ -362,6 +405,7 @@ export default function App() {
         onNavigate={handleNavigate}
         username={account!.username}
         skinRefreshKey={skinRefreshKey}
+        overrideHeadUrl={overrideHeadUrl}
         onOpenSkin={() => setShowSkinModal(true)}
         onLogout={handleLogout}
         newsBadge={newsBadge}

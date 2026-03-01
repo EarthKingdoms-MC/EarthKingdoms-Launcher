@@ -82,6 +82,9 @@ app.whenReady().then(() => {
   // Quand téléchargé → redémarre l'app pour appliquer (Windows + Linux uniquement)
   if (app.isPackaged && process.platform !== 'darwin') {
     autoUpdater.on('update-available',   (info) => wlog(`Mise à jour disponible : ${(info as any)?.version ?? '?'}`))
+    autoUpdater.on('download-progress',  (p: { percent: number }) => {
+      mainWindow?.webContents.send('update:progress', Math.round(p.percent))
+    })
     autoUpdater.on('update-downloaded',  (info) => {
       wlog(`Mise à jour téléchargée : ${(info as any)?.version ?? '?'} — redémarrage…`)
       autoUpdater.quitAndInstall(true, true)
@@ -163,8 +166,33 @@ ipcMain.handle('news:load', async () => {
 
 // ── Skin (contourne CSP/CORS) ─────────────────────────────────────────────────
 ipcMain.handle('skin:load', async (_e, username: string) => {
+  // Source de vérité : l'URL du skin marqué is_current dans l'historique
+  const account = getActiveAccount()
+  if (account) {
+    try {
+      const histRes = await net.fetch('https://earthkingdoms-mc.fr/api/skin/history/list', {
+        headers: { Authorization: `Bearer ${account.token}` },
+        cache: 'no-store',
+      })
+      if (histRes.ok) {
+        const data = await histRes.json() as { history: Array<{ id: string | number; skin_url: string; is_current: boolean }> }
+        const current = data.history?.find(h => h.is_current)
+        if (current?.skin_url) {
+          const fullUrl = current.skin_url.startsWith('http')
+            ? current.skin_url
+            : `https://earthkingdoms-mc.fr${current.skin_url}`
+          const res = await net.fetch(`${fullUrl}?t=${Date.now()}`, { cache: 'no-store' })
+          if (res.ok) {
+            const buf = await res.arrayBuffer()
+            return `data:image/png;base64,${Buffer.from(buf).toString('base64')}`
+          }
+        }
+      }
+    } catch { /* fallback ci-dessous */ }
+  }
+  // Fallback : URL basée sur le username
   try {
-    const res = await net.fetch(`https://earthkingdoms-mc.fr/skins/${username}.png?t=${Date.now()}`)
+    const res = await net.fetch(`https://earthkingdoms-mc.fr/skins/${username}.png?t=${Date.now()}`, { cache: 'no-store' })
     if (!res.ok) return null
     const buf = await res.arrayBuffer()
     return `data:image/png;base64,${Buffer.from(buf).toString('base64')}`
@@ -176,7 +204,7 @@ ipcMain.handle('skin:load', async (_e, username: string) => {
 ipcMain.handle('skin:loadUrl', async (_e, url: string) => {
   try {
     const fullUrl = url.startsWith('http') ? url : `https://earthkingdoms-mc.fr${url}`
-    const res = await net.fetch(`${fullUrl}?t=${Date.now()}`)
+    const res = await net.fetch(`${fullUrl}?t=${Date.now()}`, { cache: 'no-store' })
     if (!res.ok) return null
     const buf = await res.arrayBuffer()
     return `data:image/png;base64,${Buffer.from(buf).toString('base64')}`

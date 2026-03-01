@@ -116,7 +116,7 @@ export default function HomePage() {
             <span className={`home__dot home__dot--${dotState}`} />
             <span className="home__status-text">
               {status.online
-                ? <><strong className="font-mc">{playerCount}/{maxPlayers}</strong> en ligne</>
+                ? <><strong className="font-mc">{playerCount}/{maxPlayers}</strong><span>en ligne</span></>
                 : serverLoading
                   ? 'Connexion…'
                   : <strong>Serveur hors ligne</strong>
@@ -125,8 +125,10 @@ export default function HomePage() {
             <span className="home__status-divider" />
             <span className="home__server-id">SRV-EU</span>
             <span className="home__status-divider" />
-            <img src="./icons/ping-low.svg" alt="" className="home__ping" />
-            <span className="home__ping-label">{ping > 0 ? `${ping} ms` : '—'}</span>
+            <span className="home__ping-group">
+              <img src="./icons/ping-low.svg" alt="" className="home__ping" />
+              <span className="home__ping-label">{ping > 0 ? `${ping} ms` : '—'}</span>
+            </span>
           </div>
 
           {status.online && (
