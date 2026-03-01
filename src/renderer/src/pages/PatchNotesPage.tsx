@@ -8,34 +8,22 @@ interface PatchCard {
   url:     string
 }
 
-function parsePatchNotes(html: string): PatchCard[] {
-  const doc   = new DOMParser().parseFromString(html, 'text/html')
-  const cards = Array.from(doc.querySelectorAll('.news-card'))
-  const items: PatchCard[] = []
-
-  for (const card of cards) {
-    // Titre : h1/h2/h3 ou .title, .news-title, .card-title
-    const titleEl  = card.querySelector('h1, h2, h3, .title, .news-title, .card-title')
-    // Date : .date, time, [class*="date"]
-    const dateEl   = card.querySelector('.date, time, [class*="date"]')
-    // Extrait : premier <p> de .news-content, sinon tout le texte hors titre/date
-    const content  = card.querySelector('.news-content, .card-content')
-    const excerptEl = content?.querySelector('p') ?? card.querySelector('p')
-    // Lien vers l'article complet
-    const linkEl   = card.querySelector('a[href*="/news/"]') ?? card.closest('a[href*="/news/"]')
-    const href     = linkEl?.getAttribute('href') ?? ''
-
-    const title   = titleEl?.textContent?.trim()   ?? ''
-    const date    = dateEl?.textContent?.trim()    ?? ''
-    const excerpt = excerptEl?.textContent?.trim() ?? ''
-    const url     = href.startsWith('http')
-      ? href
-      : `https://earthkingdoms-mc.fr${href}`
-
-    if (title) items.push({ title, date, excerpt, url })
+function parsePatchNotes(json: string): PatchCard[] {
+  try {
+    const data = JSON.parse(json) as Array<{
+      title: string; dateFr: string; excerpt: string; url: string
+    }>
+    return data
+      .map(a => ({
+        title:   a.title,
+        date:    a.dateFr,
+        excerpt: a.excerpt ?? '',
+        url:     a.url.startsWith('http') ? a.url : `https://earthkingdoms-mc.fr${a.url}`,
+      }))
+      .filter(c => c.title)
+  } catch {
+    return []
   }
-
-  return items
 }
 
 export default function PatchNotesPage() {

@@ -111,7 +111,7 @@ export default function LoginPage({ onLogin }: Props) {
 
         <a
           className="login__register"
-          onClick={() => window.api.openExternal('https://earthkingdoms-mc.fr/auth.php')}
+          onClick={() => window.api.openExternal('https://earthkingdoms-mc.fr/compte')}
         >
           Pas encore de compte ? Créer un compte
         </a>

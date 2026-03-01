@@ -153,10 +153,10 @@ ipcMain.handle('server:status', async () => {
   }
 })
 
-// ── News (scraping HTML, contourne CSP) ──────────────────────────────────────
+// ── News (JSON depuis l'API, contourne CSP) ───────────────────────────────────
 ipcMain.handle('news:load', async () => {
   try {
-    const res = await net.fetch('https://earthkingdoms-mc.fr/news/')
+    const res = await net.fetch('https://earthkingdoms-mc.fr/api/news?limit=8')
     if (!res.ok) return null
     return await res.text()
   } catch {
@@ -415,10 +415,10 @@ ipcMain.handle('app:version', () => app.getVersion())
 ipcMain.handle('system:totalRam', () => Math.floor(totalmem() / 1024 / 1024 / 1024))
 
 // ── Patch notes ───────────────────────────────────────────────────────────────
-// Les patch notes sont des articles filtrés depuis la page news
+// Les patch notes sont des articles filtrés depuis l'API news
 ipcMain.handle('patchnotes:load', async () => {
   try {
-    const res = await net.fetch('https://earthkingdoms-mc.fr/news/?filter=patch-note')
+    const res = await net.fetch('https://earthkingdoms-mc.fr/api/news?filter=patch-note&limit=10')
     if (!res.ok) return null
     return await res.text()
   } catch {
