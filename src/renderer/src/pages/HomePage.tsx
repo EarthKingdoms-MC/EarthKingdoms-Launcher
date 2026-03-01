@@ -134,8 +134,8 @@ export default function HomePage() {
           )}
 
           <div className="home__hero">
-            <span className="home__hero-eyebrow">Saison III — Âge des Nations</span>
-            <h1 className="home__hero-title">Conquérez<br /><span className="home__hero-accent">le Monde</span></h1>
+            <span className="home__hero-eyebrow">Saison IV — Âge des Nations</span>
+            <h1 className="home__hero-title">Bâtissez<br /><span className="home__hero-accent">Votre Empire</span></h1>
           </div>
 
           {launchErr && (
