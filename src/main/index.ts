@@ -305,8 +305,8 @@ ipcMain.handle('skin:upload', async (_e, fileData: number[]) => {
 })
 
 // ── Lancement Minecraft ───────────────────────────────────────────────────────
-ipcMain.handle('launch:start', () => {
-  const account = getActiveAccount()
+ipcMain.handle('launch:start', async () => {
+  const account = await getAccount()
   if (!account) return { ok: false, error: 'Non connecté.' }
 
   const ram      = (store.get('ram')      as number)        || 4

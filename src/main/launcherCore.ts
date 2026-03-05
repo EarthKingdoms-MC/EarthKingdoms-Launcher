@@ -111,7 +111,8 @@ export function startLaunch(
   // JVM args : G1GC + Java 17 add-opens (obligatoire Forge 1.20.1)
   const jvmArgs = [
     // Token EarthKingdoms (auth serveur)
-    `-Dearthkingdoms.token=${account.token}`,
+    `-Dek.launcher.token=${account.token}`,
+    `-Dek.launcher.username=${account.username}`,
     '-Dearthkingdoms.api.url=https://earthkingdoms-mc.fr/api',
 
     // G1GC (Aikar's flags adaptés)
