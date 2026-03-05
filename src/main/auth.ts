@@ -116,11 +116,13 @@ export async function login(
   }
 
   const data = await res.json() as { token: string; expires: number; username: string; is_admin: boolean }
+  // L'API retourne expires en ms si > 10^12, on normalise en secondes
+  const expiresSeconds = data.expires > 1e12 ? Math.floor(data.expires / 1000) : data.expires
   const account: Account = {
     username:     data.username,
     uuid:         makeUUID(data.username),
     token:        data.token,
-    tokenExpires: data.expires,
+    tokenExpires: expiresSeconds,
     isAdmin:      data.is_admin,
   }
 
@@ -142,7 +144,8 @@ async function refreshToken(account: Account): Promise<Account | null> {
     if (!res.ok) return null
     const data = await res.json() as { success: boolean; token: string; expires: number }
     if (!data.success) return null
-    const updated: Account = { ...account, token: data.token, tokenExpires: data.expires }
+    const expiresSeconds = data.expires > 1e12 ? Math.floor(data.expires / 1000) : data.expires
+    const updated: Account = { ...account, token: data.token, tokenExpires: expiresSeconds }
     upsertAccount(updated)
     store.set('account', updated)
     return updated
