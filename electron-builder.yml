@@ -31,3 +31,4 @@ linux:
 nsis:
   oneClick: true
   perMachine: false
+  allowElevation: true

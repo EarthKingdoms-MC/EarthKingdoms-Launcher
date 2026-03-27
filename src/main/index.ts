@@ -94,7 +94,8 @@ app.whenReady().then(() => {
     })
     autoUpdater.on('update-downloaded',  (info) => {
       wlog(`Mise à jour téléchargée : ${(info as any)?.version ?? '?'} — redémarrage…`)
-      autoUpdater.quitAndInstall(true, true)
+      stopLaunch()
+      setTimeout(() => autoUpdater.quitAndInstall(true, true), 500)
     })
   }
 })
