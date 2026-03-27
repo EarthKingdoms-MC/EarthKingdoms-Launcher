@@ -3,13 +3,16 @@ import path    from 'path'
 import fs      from 'fs'
 import { store } from './store'
 import type { Account } from './store'
+import { getActiveAccount, getLauncherUA } from './auth'
 
 // Patch global.fetch pour mc-java-core :
 //  1. Force HTTPS (le JSON contient des URLs http://)
-//  2. Intercepte la liste de fichiers pour gérer les mods optionnels :
-//     - actifs  → path modoptionnel/X  devient  mods/X  (MC les charge)
+//  2. Intercepte la liste de fichiers pour gérer les mods optionnels et admin :
+//     - actifs  → path modoptionnel/X ou modadmin/X  devient  mods/X  (MC les charge)
 //     - inactifs→ supprimés de la liste (mc-java-core ne les télécharge pas,
 //                 checkFiles les supprime s'ils existaient)
+//     - Le token Bearer est envoyé au serveur : c'est lui qui décide quels
+//       fichiers modadmin/ retourner (validation côté serveur).
 const _nativeFetch = global.fetch
 ;(global as any).fetch = function(input: RequestInfo | URL, init?: RequestInit) {
   if (typeof input === 'string' && input.startsWith('http://earthkingdoms-mc.fr')) {
@@ -21,17 +24,38 @@ const _nativeFetch = global.fetch
     input.includes('earthkingdoms-mc.fr/launcher/files/') &&
     input.includes('instance=')
   ) {
-    return _nativeFetch(input, init).then(async res => {
+    const account = getActiveAccount()
+    const isAdmin = account?.isAdmin === true
+
+    // Ajoute l'User-Agent launcher sur toutes les requêtes vers earthkingdoms-mc.fr
+    // pour le bypass Cloudflare bot protection
+    const ua = getLauncherUA()
+    const patchedHeaders = new Headers((init as RequestInit | undefined)?.headers)
+    patchedHeaders.set('User-Agent', ua)
+    const patchedInit = { ...(init as RequestInit | undefined), headers: patchedHeaders }
+
+    return _nativeFetch(input, patchedInit as RequestInit).then(async res => {
       const json = await res.json() as Array<{ url: string; size: number; hash: string; path: string }>
       const enabled = (store.get('enabledOptionalMods') as string[]) ?? []
+
       const transformed = json
         .map(entry => {
-          if (!entry.path?.startsWith('modoptionnel/')) return entry
-          if (enabled.includes(entry.path)) {
-            // Actif → placer dans mods/ pour que Forge le charge
-            return { ...entry, path: entry.path.replace('modoptionnel/', 'mods/') }
+          if (entry.path?.startsWith('modoptionnel/')) {
+            if (enabled.includes(entry.path)) {
+              return { ...entry, path: entry.path.replace('modoptionnel/', 'mods/') }
+            }
+            return null  // Inactif → retiré de la liste
           }
-          return null  // Inactif → retiré de la liste
+          if (entry.path?.startsWith('modadmin/')) {
+            // Double vérification client : isAdmin doit être true (défense en profondeur).
+            // TODO: une fois le serveur mis à jour, il n'enverra ces fichiers
+            // qu'aux tokens admin — la sécurité principale sera côté serveur.
+            if (isAdmin && enabled.includes(entry.path)) {
+              return { ...entry, path: entry.path.replace('modadmin/', 'mods/') }
+            }
+            return null  // Non admin ou inactif → retiré de la liste
+          }
+          return entry
         })
         .filter(Boolean)
       return new Response(JSON.stringify(transformed), {

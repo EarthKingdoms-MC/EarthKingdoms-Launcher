@@ -7,7 +7,14 @@ import { appendFileSync, mkdirSync, readdirSync, statSync, unlinkSync } from 'fs
 import { totalmem } from 'os'
 import { request as httpsRequest } from 'https'
 import { store }   from './store'
-import { login, logout, getAccount, getActiveAccount, getAccounts, switchAccount, removeAccount } from './auth'
+import { login, logout, getAccount, getActiveAccount, getAccounts, switchAccount, removeAccount, getLauncherUA } from './auth'
+
+/** net.fetch avec User-Agent launcher — permet le bypass Cloudflare bot protection */
+function ekFetch(url: string, init?: Parameters<typeof net.fetch>[1]): ReturnType<typeof net.fetch> {
+  const headers = new Headers(init?.headers)
+  headers.set('User-Agent', getLauncherUA())
+  return net.fetch(url, { ...init, headers })
+}
 import { startLaunch, stopLaunch, isRunning } from './launcherCore'
 import { autoUpdater } from 'electron-updater'
 import type { Account, LaunchProfile } from './store'
@@ -156,7 +163,7 @@ ipcMain.handle('server:status', async () => {
 // ── News (JSON depuis l'API, contourne CSP) ───────────────────────────────────
 ipcMain.handle('news:load', async () => {
   try {
-    const res = await net.fetch('https://earthkingdoms-mc.fr/api/news?limit=8')
+    const res = await ekFetch('https://earthkingdoms-mc.fr/api/news?limit=8')
     if (!res.ok) return null
     return await res.text()
   } catch {
@@ -170,7 +177,7 @@ ipcMain.handle('skin:load', async (_e, username: string) => {
   const account = getActiveAccount()
   if (account) {
     try {
-      const histRes = await net.fetch('https://earthkingdoms-mc.fr/api/skin/history/list', {
+      const histRes = await ekFetch('https://earthkingdoms-mc.fr/api/skin/history/list', {
         headers: { Authorization: `Bearer ${account.token}` },
         cache: 'no-store',
       })
@@ -181,7 +188,7 @@ ipcMain.handle('skin:load', async (_e, username: string) => {
           const fullUrl = current.skin_url.startsWith('http')
             ? current.skin_url
             : `https://earthkingdoms-mc.fr${current.skin_url}`
-          const res = await net.fetch(`${fullUrl}?t=${Date.now()}`, { cache: 'no-store' })
+          const res = await ekFetch(`${fullUrl}?t=${Date.now()}`, { cache: 'no-store' })
           if (res.ok) {
             const buf = await res.arrayBuffer()
             return `data:image/png;base64,${Buffer.from(buf).toString('base64')}`
@@ -192,7 +199,7 @@ ipcMain.handle('skin:load', async (_e, username: string) => {
   }
   // Fallback : URL basée sur le username
   try {
-    const res = await net.fetch(`https://earthkingdoms-mc.fr/skins/${username}.png?t=${Date.now()}`, { cache: 'no-store' })
+    const res = await ekFetch(`https://earthkingdoms-mc.fr/skins/${username}.png?t=${Date.now()}`, { cache: 'no-store' })
     if (!res.ok) return null
     const buf = await res.arrayBuffer()
     return `data:image/png;base64,${Buffer.from(buf).toString('base64')}`
@@ -204,7 +211,7 @@ ipcMain.handle('skin:load', async (_e, username: string) => {
 ipcMain.handle('skin:loadUrl', async (_e, url: string) => {
   try {
     const fullUrl = url.startsWith('http') ? url : `https://earthkingdoms-mc.fr${url}`
-    const res = await net.fetch(`${fullUrl}?t=${Date.now()}`, { cache: 'no-store' })
+    const res = await ekFetch(`${fullUrl}?t=${Date.now()}`, { cache: 'no-store' })
     if (!res.ok) return null
     const buf = await res.arrayBuffer()
     return `data:image/png;base64,${Buffer.from(buf).toString('base64')}`
@@ -217,7 +224,7 @@ ipcMain.handle('skin:historyList', async () => {
   const account = getActiveAccount()
   if (!account) return { ok: false, error: 'Non connecté.' }
   try {
-    const res = await net.fetch('https://earthkingdoms-mc.fr/api/skin/history/list', {
+    const res = await ekFetch('https://earthkingdoms-mc.fr/api/skin/history/list', {
       headers: { Authorization: `Bearer ${account.token}` },
     })
     if (!res.ok) return { ok: false, error: `Erreur serveur (${res.status})` }
@@ -232,7 +239,7 @@ ipcMain.handle('skin:historyRestore', async (_e, historyId: string) => {
   const account = getActiveAccount()
   if (!account) return { ok: false, error: 'Non connecté.' }
   try {
-    const res = await net.fetch(`https://earthkingdoms-mc.fr/api/skin/history/restore/${encodeURIComponent(historyId)}`, {
+    const res = await ekFetch(`https://earthkingdoms-mc.fr/api/skin/history/restore/${encodeURIComponent(historyId)}`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${account.token}` },
     })
@@ -276,6 +283,7 @@ ipcMain.handle('skin:upload', async (_e, fileData: number[]) => {
             'Authorization': `Bearer ${account.token}`,
             'Content-Type':  `multipart/form-data; boundary=${boundary}`,
             'Content-Length': String(body.length),
+            'User-Agent':    getLauncherUA(),
           },
         },
         (res) => {
@@ -381,10 +389,19 @@ ipcMain.handle('logs:openDir', () => {
 // ── Mods optionnels ───────────────────────────────────────────────────────────
 ipcMain.handle('mods:getOptional', async () => {
   try {
-    const res = await net.fetch('https://earthkingdoms-mc.fr/launcher/files/?instance=EarthKingdomsV4-beta')
+    const res = await ekFetch('https://earthkingdoms-mc.fr/launcher/files/?instance=EarthKingdomsV4-beta')
     if (!res.ok) return []
     const data = await res.json() as Array<{ url: string; size: number; hash: string; path: string }>
-    return data.filter(f => f.path?.startsWith('modoptionnel/'))
+
+    // Retourne les mods optionnels standard + les mods admin si le compte est admin.
+    // NOTE: le filtre modadmin/ sera actif une fois le serveur mis à jour pour
+    // retourner ces fichiers uniquement aux admins (validation côté serveur).
+    const account = getActiveAccount()
+    const isAdmin = account?.isAdmin === true
+    return data.filter(f =>
+      f.path?.startsWith('modoptionnel/') ||
+      (isAdmin && f.path?.startsWith('modadmin/'))
+    )
   } catch {
     return []
   }
@@ -418,7 +435,7 @@ ipcMain.handle('system:totalRam', () => Math.floor(totalmem() / 1024 / 1024 / 10
 // Les patch notes sont des articles filtrés depuis l'API news
 ipcMain.handle('patchnotes:load', async () => {
   try {
-    const res = await net.fetch('https://earthkingdoms-mc.fr/api/news?filter=patch-note&limit=10')
+    const res = await ekFetch('https://earthkingdoms-mc.fr/api/news?filter=patch-note&limit=10')
     if (!res.ok) return null
     return await res.text()
   } catch {

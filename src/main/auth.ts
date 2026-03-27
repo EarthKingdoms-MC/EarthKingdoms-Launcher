@@ -1,8 +1,10 @@
 import crypto from 'crypto'
-import { net } from 'electron'
+import { app, net } from 'electron'
 import { store, Account } from './store'
 
 const API = 'https://earthkingdoms-mc.fr/api'
+
+export const getLauncherUA = (): string => `EarthKingdomsLauncher/${app.getVersion()}`
 
 // Durées (secondes)
 const REFRESH_THRESHOLD = 3600  // refresh préventif si < 1h restante
@@ -21,7 +23,9 @@ function makeUUID(username: string): string {
 }
 
 async function apiFetch(path: string, options?: RequestInit): Promise<Response> {
-  return net.fetch(`${API}${path}`, options as Parameters<typeof net.fetch>[1])
+  const headers = new Headers(options?.headers)
+  headers.set('User-Agent', getLauncherUA())
+  return net.fetch(`${API}${path}`, { ...options, headers } as Parameters<typeof net.fetch>[1])
 }
 
 // ─── Helpers multicompte ────────────────────────────────────────────────────

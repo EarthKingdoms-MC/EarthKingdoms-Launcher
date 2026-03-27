@@ -114,39 +114,53 @@ export default function ModsPage() {
           <p className="mods__empty">Aucun mod optionnel disponible.</p>
         )}
 
-        {mods.map(mod => {
-          const key   = mod.name.toLowerCase().replace(/\s+/g, '')
-          const on    = enabled.has(mod.path)
-          const desc  = MOD_DESCS[key] ?? 'Mod optionnel — cliquez pour activer ou désactiver.'
-          return (
-            <div key={mod.path} className={`mod-row ${on ? 'mod-row--on' : ''}`}>
-              {/* Icône */}
-              <div className="mod-row__icon">
-                {MOD_ICONS[key] ?? DEFAULT_ICON}
-              </div>
+        {!loading && (() => {
+          const adminMods    = mods.filter(m => m.path.startsWith('modadmin/'))
+          const optionalMods = mods.filter(m => !m.path.startsWith('modadmin/'))
 
-              {/* Infos */}
-              <div className="mod-row__info">
-                <div className="mod-row__name-line">
-                  <span className="mod-row__name">{mod.name}</span>
-                  {mod.version && (
-                    <span className="mod-row__version">v{mod.version}</span>
-                  )}
-                  <span className="mod-row__size">{formatSize(mod.size)}</span>
+          const renderMod = (mod: OptionalMod, isAdmin: boolean) => {
+            const key  = mod.name.toLowerCase().replace(/\s+/g, '')
+            const on   = enabled.has(mod.path)
+            const desc = MOD_DESCS[key] ?? (isAdmin
+              ? 'Mod réservé aux administrateurs.'
+              : 'Mod optionnel — cliquez pour activer ou désactiver.')
+            return (
+              <div key={mod.path} className={`mod-row ${on ? 'mod-row--on' : ''} ${isAdmin ? 'mod-row--admin' : ''}`}>
+                <div className="mod-row__icon">
+                  {MOD_ICONS[key] ?? DEFAULT_ICON}
                 </div>
-                <p className="mod-row__desc">{desc}</p>
+                <div className="mod-row__info">
+                  <div className="mod-row__name-line">
+                    <span className="mod-row__name">{mod.name}</span>
+                    {isAdmin && <span className="mod-row__admin-badge">ADMIN</span>}
+                    {mod.version && <span className="mod-row__version">v{mod.version}</span>}
+                    <span className="mod-row__size">{formatSize(mod.size)}</span>
+                  </div>
+                  <p className="mod-row__desc">{desc}</p>
+                </div>
+                <button
+                  className={`mod-toggle ${on ? 'mod-toggle--on' : 'mod-toggle--off'}`}
+                  onClick={() => toggle(mod.path)}
+                >
+                  {on ? 'ACTIVÉ' : 'DÉSACTIVÉ'}
+                </button>
               </div>
+            )
+          }
 
-              {/* Toggle bouton style Minecraft */}
-              <button
-                className={`mod-toggle ${on ? 'mod-toggle--on' : 'mod-toggle--off'}`}
-                onClick={() => toggle(mod.path)}
-              >
-                {on ? 'ACTIVÉ' : 'DÉSACTIVÉ'}
-              </button>
-            </div>
+          return (
+            <>
+              {adminMods.length > 0 && (
+                <>
+                  <p className="mods__section-label">Mods Admin</p>
+                  {adminMods.map(m => renderMod(m, true))}
+                  {optionalMods.length > 0 && <p className="mods__section-label">Mods Optionnels</p>}
+                </>
+              )}
+              {optionalMods.map(m => renderMod(m, false))}
+            </>
           )
-        })}
+        })()}
       </div>
 
       <div className="mods__footer">
