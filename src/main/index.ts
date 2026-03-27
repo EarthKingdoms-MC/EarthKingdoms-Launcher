@@ -390,18 +390,17 @@ ipcMain.handle('logs:openDir', () => {
 // ── Mods optionnels ───────────────────────────────────────────────────────────
 ipcMain.handle('mods:getOptional', async () => {
   try {
-    const res = await ekFetch('https://earthkingdoms-mc.fr/launcher/files/?instance=EarthKingdomsV4-beta')
+    const account = getActiveAccount()
+    const headers: Record<string, string> = {}
+    if (account?.token) headers['Authorization'] = `Bearer ${account.token}`
+
+    const res = await ekFetch('https://earthkingdoms-mc.fr/launcher/files/?instance=EarthKingdomsV4-beta', { headers })
     if (!res.ok) return []
     const data = await res.json() as Array<{ url: string; size: number; hash: string; path: string }>
 
-    // Retourne les mods optionnels standard + les mods admin si le compte est admin.
-    // NOTE: le filtre modadmin/ sera actif une fois le serveur mis à jour pour
-    // retourner ces fichiers uniquement aux admins (validation côté serveur).
-    const account = getActiveAccount()
-    const isAdmin = account?.isAdmin === true
     return data.filter(f =>
       f.path?.startsWith('modoptionnel/') ||
-      (isAdmin && f.path?.startsWith('modadmin/'))
+      f.path?.startsWith('modadmin/')
     )
   } catch {
     return []
