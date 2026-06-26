@@ -5,9 +5,9 @@
 
 /* ── Design Tokens ─────────────────────────────────── */
 :root {
-  --bg-main:        #0E0A2A;
-  --bg-surface:     #15103F;
-  --bg-elevated:    #1C1750;
+  --bg-main:        #0D0D18;
+  --bg-surface:     #131321;
+  --bg-elevated:    #19192A;
   --blue:           #1A0C80;
   --blue-mid:       #2516A8;
   --orange:         #EC8200;
@@ -20,8 +20,8 @@
   --success:        #2ECC71;
   --error:          #E74C3C;
   --warning:        #EC8200;
-  --border:         rgba(26, 12, 128, 0.55);
-  --border-bright:  rgba(26, 12, 128, 0.85);
+  --border:         rgba(255, 240, 220, 0.08);
+  --border-bright:  rgba(255, 240, 220, 0.14);
   --radius-sm:      3px;
   --radius-md:      6px;
   --radius-lg:      10px;
@@ -47,7 +47,7 @@ body {
 /* ── Scrollbar ──────────────────────────────────────── */
 ::-webkit-scrollbar { width: 3px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(26,12,128,0.7); border-radius: 2px; }
+::-webkit-scrollbar-thumb { background: rgba(255,240,220,0.15); border-radius: 2px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--orange); }
 
 /* ── Layout racine ──────────────────────────────────── */
@@ -132,7 +132,7 @@ body {
   align-items: center;
   gap: 8px;
   padding: 8px 20px;
-  background: rgba(26, 12, 128, 0.4);
+  background: rgba(255, 255, 255, 0.05);
   color: var(--text);
   font-family: 'Rajdhani', sans-serif;
   font-size: 13px;
@@ -144,7 +144,7 @@ body {
   cursor: pointer;
   transition: border-color 200ms, background 200ms;
 }
-.btn-secondary:hover  { border-color: var(--orange); background: rgba(26, 12, 128, 0.65); }
+.btn-secondary:hover  { border-color: var(--orange); background: rgba(255, 255, 255, 0.08); }
 .btn-secondary:active { filter: brightness(0.9); }
 .btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
 
@@ -152,7 +152,7 @@ body {
 .progress-bar {
   width: 100%;
   height: 3px;
-  background: rgba(26,12,128,0.35);
+  background: rgba(255,255,255,0.06);
   border-radius: 2px;
   overflow: hidden;
 }

@@ -87,7 +87,7 @@
   width: 64px;
   height: 64px;
   background: var(--bg-elevated);
-  border: 2px solid rgba(26,12,128,0.6);
+  border: 2px solid rgba(255,240,220,0.1);
   border-radius: 8px;
   display: flex;
   align-items: center;

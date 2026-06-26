@@ -55,7 +55,7 @@
   padding: 13px 16px;
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-left: 2px solid rgba(26,12,128,0.5);
+  border-left: 2px solid rgba(255,240,220,0.08);
   border-radius: 2px;
   margin-bottom: 5px;
   transition: border-left-color 200ms;
@@ -110,8 +110,8 @@
     90deg,
     var(--orange) 0%,
     var(--orange) var(--fill, 14%),
-    rgba(26,12,128,0.5) var(--fill, 14%),
-    rgba(26,12,128,0.5) 100%
+    rgba(255,255,255,0.1) var(--fill, 14%),
+    rgba(255,255,255,0.1) 100%
   );
   border-radius: 2px;
   outline: none;

@@ -370,7 +370,7 @@ export default function App() {
       >
         <div style={{
           position: 'absolute', inset: 0, zIndex: 200,
-          background: 'rgba(14,10,42,0.97)',
+          background: 'rgba(13,13,24,0.97)',
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         }}>
           {/* Bouton retour — position fixe haut gauche, z-index élevé */}

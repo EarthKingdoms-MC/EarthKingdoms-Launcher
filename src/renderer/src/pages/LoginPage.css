@@ -45,10 +45,10 @@
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(26,12,128,0.28) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(26,12,128,0.28) 1px, transparent 1px),
-    linear-gradient(rgba(26,12,128,0.055) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(26,12,128,0.055) 1px, transparent 1px);
+    linear-gradient(rgba(255,240,220,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,240,220,0.05) 1px, transparent 1px),
+    linear-gradient(rgba(255,240,220,0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,240,220,0.018) 1px, transparent 1px);
   background-size: 256px 256px, 256px 256px, 16px 16px, 16px 16px;
   pointer-events: none;
 }

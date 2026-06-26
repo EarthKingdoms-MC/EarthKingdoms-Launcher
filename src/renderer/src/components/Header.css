@@ -3,7 +3,7 @@
   display: flex;
   align-items: center;
   height: 50px;
-  background: linear-gradient(180deg, rgba(21,16,63,0.98) 0%, rgba(14,10,42,0.97) 100%);
+  background: linear-gradient(180deg, rgba(19,19,33,0.98) 0%, rgba(13,13,24,0.97) 100%);
   border-bottom: 1px solid var(--border);
   padding: 0 10px 0 20px;
   flex-shrink: 0;
@@ -121,10 +121,10 @@
   border-radius: 20px;
   cursor: pointer;
   transition: border-color 200ms, background 200ms;
-  background: rgba(26,12,128,0.15);
+  background: rgba(255,255,255,0.04);
   -webkit-app-region: no-drag;
 }
-.header__profile:hover { border-color: rgba(236,130,0,0.5); background: rgba(26,12,128,0.3); }
+.header__profile:hover { border-color: rgba(236,130,0,0.5); background: rgba(255,255,255,0.07); }
 
 .header__avatar {
   width: 28px; height: 28px;
@@ -202,7 +202,7 @@
   top: calc(100% + 8px);
   right: 0;
   min-width: 200px;
-  background: rgba(14,10,42,0.98);
+  background: rgba(13,13,24,0.98);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 6px;
