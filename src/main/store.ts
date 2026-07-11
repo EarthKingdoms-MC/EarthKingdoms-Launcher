@@ -37,6 +37,7 @@ interface Schema {
   lastSeenNewsCount:      number
   launchProfiles:         LaunchProfile[]
   activeProfileId:        string
+  closeOnLaunch:          boolean
 }
 
 export const store = new Store<Schema>({
@@ -54,6 +55,7 @@ export const store = new Store<Schema>({
     lastSeenNewsCount:      0,
     launchProfiles:         [{ id: 'default', name: 'Défaut', ram: 4, resW: 854, resH: 480, javaPath: null }],
     activeProfileId:        'default',
+    closeOnLaunch:          false,
   }
 })
 

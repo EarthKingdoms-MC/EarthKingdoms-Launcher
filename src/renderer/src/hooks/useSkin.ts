@@ -53,16 +53,18 @@ export interface GameJob {
 export interface GamePlayer {
   uuid:       string
   name:       string
-  online:     boolean
-  balance:    number
+  // null quand le serveur de jeu est injoignable (voir dataAvailable côté
+  // statusPlayer) - affiché "N/A" plutôt que de bloquer l'écran sur une erreur.
+  online:     boolean | null
+  balance:    number | null
   nation:     string | null
   nationName: string | null
   nationRank: string | null
-  jobs:       GameJob[]
-  kills:      number
-  deaths:     number
-  kda:        number
-  playtime:   string
+  jobs:       GameJob[] | null
+  kills:      number | null
+  deaths:     number | null
+  kda:        number | null
+  playtime:   string | null
 }
 
 declare global {
@@ -87,7 +89,7 @@ declare global {
 
       serverStatus(): Promise<ServerStatus | { online: false }>
 
-      statusPlayer(): Promise<{ ok: boolean; player?: GamePlayer; error?: string }>
+      statusPlayer(): Promise<{ ok: boolean; player?: GamePlayer; dataAvailable?: boolean; error?: string }>
 
       newsLoad(): Promise<string | null>
       skinLoad(username: string): Promise<string | null>
@@ -105,13 +107,18 @@ declare global {
 
       dialogOpenFile(): Promise<string | null>
       appVersion(): Promise<string>
-      updateCheck(): Promise<{ available: boolean }>
+      updateCheck(): Promise<{ available: boolean; macUpdate?: boolean; latestVersion?: string; downloadUrl?: string }>
 
       modsGetOptional(): Promise<Array<{ url: string; size: number; hash: string; path: string }>>
       modsGetEnabled(): Promise<string[]>
       modsSetEnabled(paths: string[]): Promise<void>
 
       systemTotalRam(): Promise<number>
+
+      systemGetStartupEnabled(): Promise<boolean>
+      systemSetStartupEnabled(enabled: boolean): Promise<void>
+
+      repairMods(): Promise<{ ok: boolean; error?: string; cancelled?: boolean }>
       patchnotesLoad(): Promise<string | null>
 
       profilesList(): Promise<{ profiles: LaunchProfile[]; activeId: string }>

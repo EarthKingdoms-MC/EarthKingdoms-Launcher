@@ -100,10 +100,13 @@ function formatBalance(n: number): string {
   return new Intl.NumberFormat('fr-FR').format(Math.round(n))
 }
 
+const NA = <span className="player-status__na">N/A</span>
+
 export default function PlayerStatusPage() {
-  const [player,  setPlayer]  = useState<GamePlayer | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error,   setError]   = useState<string | null>(null)
+  const [player,        setPlayer]        = useState<GamePlayer | null>(null)
+  const [dataAvailable, setDataAvailable] = useState(true)
+  const [loading,       setLoading]       = useState(true)
+  const [error,         setError]         = useState<string | null>(null)
 
   const headUrl = useSkinHead(player?.name ?? '')
 
@@ -116,7 +119,10 @@ export default function PlayerStatusPage() {
         const res = await window.api.statusPlayer()
         if (cancelled) return
         if (!res.ok || !res.player) setError(res.error ?? 'Statut indisponible.')
-        else setPlayer(res.player)
+        else {
+          setPlayer(res.player)
+          setDataAvailable(res.dataAvailable ?? true)
+        }
       } catch {
         if (!cancelled) setError('Erreur réseau.')
       } finally {
@@ -138,6 +144,12 @@ export default function PlayerStatusPage() {
 
       {!loading && player && (
         <div className="player-status__content">
+          {!dataAvailable && (
+            <div className="player-status__unavailable">
+              Le serveur de jeu ne répond pas pour le moment — certaines infos ne sont pas disponibles.
+            </div>
+          )}
+
           {/* ── Bandeau identité ─────────────────────────────────── */}
           <div className="player-status__hero">
             <div className={`player-status__hero-avatar ${player.online ? 'player-status__hero-avatar--online' : ''}`}>
@@ -155,11 +167,13 @@ export default function PlayerStatusPage() {
                     launcher/site pour voir cette page - ce statut ne reflète que le fait
                     d'être ou non actuellement dans la partie Minecraft, pas l'authentification. */}
                 <span className={`player-status__hero-online ${player.online ? 'player-status__hero-online--on' : ''}`}>
-                  {player.online ? 'En jeu' : 'Hors jeu'}
+                  {player.online === null ? 'Statut inconnu' : player.online ? 'En jeu' : 'Hors jeu'}
                 </span>
               </div>
               <div className="player-status__hero-tags">
-                {player.nationName ? (
+                {!dataAvailable ? (
+                  <span className="player-status__tag player-status__tag--muted">{NA}</span>
+                ) : player.nationName ? (
                   <>
                     <span className="player-status__tag">{player.nationName}</span>
                     {player.nationRank && <span className="player-status__tag player-status__tag--accent">{player.nationRank}</span>}
@@ -177,7 +191,7 @@ export default function PlayerStatusPage() {
                   <circle cx="12" cy="12" r="8.5"/>
                   <path d="M12 6.5v11M9.5 9h3.5a1.6 1.6 0 0 1 0 3.2h-2a1.6 1.6 0 0 0 0 3.2h3.5"/>
                 </svg>
-                {formatBalance(player.balance)} ₴
+                {player.balance !== null ? <>{formatBalance(player.balance)} ₴</> : NA}
               </span>
             </div>
           </div>
@@ -190,7 +204,7 @@ export default function PlayerStatusPage() {
                   <path d="M14.5 2 3 13.5 6 21l7.5-11.5L21 6z"/>
                 </svg>
               </div>
-              <span className="player-status__stat-value font-mc">{player.kills}</span>
+              <span className="player-status__stat-value font-mc">{player.kills ?? NA}</span>
               <span className="player-status__stat-label">Kills</span>
             </div>
             <div className="player-status__stat-tile">
@@ -199,7 +213,7 @@ export default function PlayerStatusPage() {
                   <circle cx="12" cy="12" r="9"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/>
                 </svg>
               </div>
-              <span className="player-status__stat-value font-mc">{player.deaths}</span>
+              <span className="player-status__stat-value font-mc">{player.deaths ?? NA}</span>
               <span className="player-status__stat-label">Morts</span>
             </div>
             <div className="player-status__stat-tile">
@@ -208,7 +222,7 @@ export default function PlayerStatusPage() {
                   <path d="M3 17l6-6 4 4 8-8"/><path d="M21 7v6h-6"/>
                 </svg>
               </div>
-              <span className="player-status__stat-value font-mc">{player.kda.toFixed(2)}</span>
+              <span className="player-status__stat-value font-mc">{player.kda !== null ? player.kda.toFixed(2) : NA}</span>
               <span className="player-status__stat-label">K/D</span>
             </div>
             <div className="player-status__stat-tile">
@@ -217,7 +231,7 @@ export default function PlayerStatusPage() {
                   <circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 16 14"/>
                 </svg>
               </div>
-              <span className="player-status__stat-value font-mc">{player.playtime}</span>
+              <span className="player-status__stat-value font-mc">{player.playtime ?? NA}</span>
               <span className="player-status__stat-label">Temps de jeu</span>
             </div>
           </div>
@@ -225,9 +239,10 @@ export default function PlayerStatusPage() {
           {/* ── Métiers ──────────────────────────────────────────── */}
           <div className="player-status__jobs">
             <p className="player-status__section-label">Métiers</p>
-            {player.jobs.length === 0 && <p className="player-status__empty">Aucun métier.</p>}
+            {player.jobs === null && <p className="player-status__empty">Indisponible pour le moment.</p>}
+            {player.jobs?.length === 0 && <p className="player-status__empty">Aucun métier.</p>}
             <div className="player-status__jobs-grid">
-              {player.jobs.map((job, i) => {
+              {player.jobs?.map((job, i) => {
                 const key   = jobKey(job.name)
                 const color = JOB_COLORS[key] ?? DEFAULT_JOB_COLOR
                 return (

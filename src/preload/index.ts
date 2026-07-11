@@ -66,6 +66,13 @@ contextBridge.exposeInMainWorld('api', {
   // RAM système
   systemTotalRam: () => ipcRenderer.invoke('system:totalRam'),
 
+  // Démarrage automatique
+  systemGetStartupEnabled: () => ipcRenderer.invoke('system:getStartupEnabled'),
+  systemSetStartupEnabled: (enabled: boolean) => ipcRenderer.invoke('system:setStartupEnabled', enabled),
+
+  // Réparation (retéléchargement des mods)
+  repairMods: () => ipcRenderer.invoke('repair:mods'),
+
   // Patch notes
   patchnotesLoad: () => ipcRenderer.invoke('patchnotes:load'),
 

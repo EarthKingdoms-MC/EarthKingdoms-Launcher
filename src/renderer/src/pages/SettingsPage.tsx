@@ -28,6 +28,14 @@ function javaLabel(javaPath: string | null): string {
   return parts[parts.length - 1] || javaPath
 }
 
+function SectionIcon({ src, color }: { src: string; color: 'orange' | 'cyan' | 'amber' | 'violet' | 'danger' }) {
+  return (
+    <span className={`settings__section-icon settings__section-icon--${color}`}>
+      <img src={src} alt="" />
+    </span>
+  )
+}
+
 interface Props {
   savedRam:      number
   onSaveRam:     (v: number) => void
@@ -55,6 +63,13 @@ export default function SettingsPage({
   const [newProfileName,  setNewProfileName]  = useState('')
   const [showNewProfile,  setShowNewProfile]  = useState(false)
   const [soundOn,         setSoundOn]         = useState(true)
+  const [startupOn,       setStartupOn]       = useState(false)
+  const [closeOnLaunch,   setCloseOnLaunch]   = useState(false)
+  const [repairing,       setRepairing]       = useState(false)
+  const [repairMsg,       setRepairMsg]       = useState<string | null>(null)
+  const [appVersion,      setAppVersion]      = useState('…')
+  const [checkingUpdate,  setCheckingUpdate]  = useState(false)
+  const [updateMsg,       setUpdateMsg]       = useState<string | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const dirty =
@@ -74,13 +89,18 @@ export default function SettingsPage({
   // Nettoyage timer à la destruction
   useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current) }, [])
 
-  // Charge la RAM système, les profils et le son au montage
+  // Charge la RAM système, les profils, le son et les autres réglages au montage
   useEffect(() => {
     window.api.systemTotalRam().then(v => setTotalRam(v)).catch(() => {})
     loadProfiles()
     window.api.storeGet('soundEnabled').then(v => {
       if (v !== undefined && v !== null) setSoundOn(Boolean(v))
     }).catch(() => {})
+    window.api.storeGet('closeOnLaunch').then(v => {
+      if (v !== undefined && v !== null) setCloseOnLaunch(Boolean(v))
+    }).catch(() => {})
+    window.api.systemGetStartupEnabled().then(v => setStartupOn(v)).catch(() => {})
+    window.api.appVersion().then(v => setAppVersion(v)).catch(() => {})
   }, [])
 
   const recommendedRam = totalRam
@@ -146,6 +166,48 @@ export default function SettingsPage({
     await window.api.storeSet('soundEnabled', next)
   }
 
+  async function handleToggleStartup() {
+    const next = !startupOn
+    setStartupOn(next)
+    await window.api.systemSetStartupEnabled(next)
+  }
+
+  async function handleToggleCloseOnLaunch() {
+    const next = !closeOnLaunch
+    setCloseOnLaunch(next)
+    await window.api.storeSet('closeOnLaunch', next)
+  }
+
+  async function handleRepair() {
+    setRepairing(true)
+    setRepairMsg(null)
+    try {
+      const res = await window.api.repairMods()
+      if (res.cancelled) { setRepairMsg(null) }
+      else if (res.ok)    { setRepairMsg('✓ Fait — les mods seront retéléchargés au prochain lancement.') }
+      else                { setRepairMsg(res.error ?? 'Erreur inconnue.') }
+    } catch {
+      setRepairMsg('Erreur inconnue.')
+    } finally {
+      setRepairing(false)
+    }
+  }
+
+  async function handleCheckUpdate() {
+    setCheckingUpdate(true)
+    setUpdateMsg(null)
+    try {
+      const res = await window.api.updateCheck()
+      if (res.available) setUpdateMsg('Mise à jour trouvée — téléchargement en cours…')
+      else if (res.macUpdate && res.latestVersion) setUpdateMsg(`Version ${res.latestVersion} disponible (voir GitHub).`)
+      else setUpdateMsg('✓ Tu es à jour.')
+    } catch {
+      setUpdateMsg('Impossible de vérifier pour le moment.')
+    } finally {
+      setCheckingUpdate(false)
+    }
+  }
+
   const ramFill = ((ram - 2) / 14) * 100
 
   function handleRamChange(v: number) {
@@ -206,10 +268,11 @@ export default function SettingsPage({
       <div className="settings__content">
         <div className="settings__page-label">Configuration</div>
 
+        <div className="settings__grid">
         {/* ── Profils ──────────────────────────────────────── */}
         <section className="settings__section">
           <h2 className="settings__section-title">
-            <img src="./icons/settings.svg" alt="" style={{ width: 16, height: 16, filter: 'invert(1)', opacity: 0.6 }} />
+            <SectionIcon src="./icons/settings.svg" color="orange" />
             Profils de lancement
           </h2>
           <div className="settings__row">
@@ -254,11 +317,11 @@ export default function SettingsPage({
           </span>
         </section>
 
-        {/* ── Sons UI ─────────────────────────────────────── */}
+        {/* ── Général ─────────────────────────────────────── */}
         <section className="settings__section">
           <h2 className="settings__section-title">
-            <img src="./icons/settings.svg" alt="" style={{ width: 16, height: 16, filter: 'invert(1)', opacity: 0.6 }} />
-            Interface
+            <SectionIcon src="./icons/settings.svg" color="cyan" />
+            Général
           </h2>
           <div className="settings__row">
             <div>
@@ -275,12 +338,42 @@ export default function SettingsPage({
               <span className="settings__toggle-knob" />
             </button>
           </div>
+          <div className="settings__row">
+            <div>
+              <label>Lancer au démarrage de Windows</label>
+              <span className="settings__hint">Ouvre le launcher automatiquement à l'allumage du PC.</span>
+            </div>
+            <button
+              className={`settings__toggle ${startupOn ? 'settings__toggle--on' : ''}`}
+              onClick={handleToggleStartup}
+              role="switch"
+              aria-checked={startupOn}
+              title={startupOn ? 'Désactiver' : 'Activer'}
+            >
+              <span className="settings__toggle-knob" />
+            </button>
+          </div>
+          <div className="settings__row">
+            <div>
+              <label>Fermer le launcher au lancement du jeu</label>
+              <span className="settings__hint">Sinon il se met juste en réduit et revient à la fermeture de Minecraft.</span>
+            </div>
+            <button
+              className={`settings__toggle ${closeOnLaunch ? 'settings__toggle--on' : ''}`}
+              onClick={handleToggleCloseOnLaunch}
+              role="switch"
+              aria-checked={closeOnLaunch}
+              title={closeOnLaunch ? 'Désactiver' : 'Activer'}
+            >
+              <span className="settings__toggle-knob" />
+            </button>
+          </div>
         </section>
 
         {/* ── RAM ─────────────────────────────────────────── */}
         <section className="settings__section">
           <h2 className="settings__section-title">
-            <img src="./icons/ram.svg" alt="" style={{ width: 16, height: 16, filter: 'invert(1)', opacity: 0.6 }} />
+            <SectionIcon src="./icons/ram.svg" color="orange" />
             Mémoire allouée
           </h2>
           <div className="settings__row settings__row--col">
@@ -308,7 +401,7 @@ export default function SettingsPage({
         {/* ── Java ────────────────────────────────────────── */}
         <section className="settings__section">
           <h2 className="settings__section-title">
-            <img src="./icons/java.svg" alt="" style={{ width: 16, height: 16, filter: 'invert(1)', opacity: 0.6 }} />
+            <SectionIcon src="./icons/java.svg" color="amber" />
             Environnement Java
           </h2>
           <div className="settings__row">
@@ -341,7 +434,7 @@ export default function SettingsPage({
         {/* ── Résolution ──────────────────────────────────── */}
         <section className="settings__section">
           <h2 className="settings__section-title">
-            <img src="./icons/screen.svg" alt="" style={{ width: 16, height: 16, filter: 'invert(1)', opacity: 0.6 }} />
+            <SectionIcon src="./icons/screen.svg" color="violet" />
             Affichage
           </h2>
           <div className="settings__row settings__row--col">
@@ -381,6 +474,53 @@ export default function SettingsPage({
             </span>
           </div>
         </section>
+
+        {/* ── Maintenance ─────────────────────────────────── */}
+        <section className="settings__section">
+          <h2 className="settings__section-title">
+            <SectionIcon src="./icons/repair.svg" color="danger" />
+            Maintenance
+          </h2>
+          <div className="settings__row">
+            <div>
+              <label>Réparer l'installation</label>
+              <span className="settings__hint">
+                En cas de crash au lancement ou de mod corrompu : retélécharge proprement les mods.
+                Tes mondes et réglages ne sont pas touchés.
+              </span>
+            </div>
+            <button className="btn-secondary" onClick={handleRepair} disabled={repairing}>
+              {repairing ? 'En cours…' : 'Réparer'}
+            </button>
+          </div>
+          {repairMsg && (
+            <span className={`settings__hint ${repairMsg.startsWith('✓') ? 'settings__hint--ok' : 'settings__hint--warn'}`} style={{ padding: '2px 16px 0' }}>
+              {repairMsg}
+            </span>
+          )}
+        </section>
+
+        {/* ── À propos ────────────────────────────────────── */}
+        <section className="settings__section">
+          <h2 className="settings__section-title settings__section-title--muted">
+            À propos
+          </h2>
+          <div className="settings__row">
+            <div>
+              <label>Version du launcher</label>
+              <span className="settings__hint">
+                {updateMsg ?? 'EarthKingdoms Launcher'}
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+              <span className="settings__badge">v{appVersion}</span>
+              <button className="btn-secondary" onClick={handleCheckUpdate} disabled={checkingUpdate}>
+                {checkingUpdate ? 'Vérification…' : 'Vérifier les mises à jour'}
+              </button>
+            </div>
+          </div>
+        </section>
+        </div>
 
         <div className="settings__save-bar">
           {saved && <span className="settings__save-confirm">✓ Paramètres sauvegardés</span>}

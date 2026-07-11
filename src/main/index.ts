@@ -3,7 +3,7 @@ import { join }    from 'path'
 
 // Permet l'autoplay audio sans geste utilisateur → préchauffage pipeline au démarrage
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required')
-import { appendFileSync, mkdirSync, readdirSync, statSync, unlinkSync } from 'fs'
+import { appendFileSync, mkdirSync, readdirSync, statSync, unlinkSync, rmSync, existsSync } from 'fs'
 import { totalmem } from 'os'
 import { request as httpsRequest } from 'https'
 import { store }   from './store'
@@ -172,7 +172,22 @@ ipcMain.handle('status:player', async () => {
       headers: { Authorization: `Bearer ${account.token}` },
     })
     if (!res.ok) return { ok: false, error: `Erreur serveur (${res.status})` }
-    return { ok: true, player: await res.json() }
+    const data = await res.json() as Record<string, unknown> | null
+
+    // Le serveur de jeu peut être injoignable (data = null) sans que ce soit une
+    // erreur - dans ce cas on affiche quand même l'écran avec des "N/A" plutôt
+    // que de bloquer sur un message d'erreur (même logique que /compte sur le site).
+    if (data) return { ok: true, dataAvailable: true, player: data }
+
+    return {
+      ok: true,
+      dataAvailable: false,
+      player: {
+        uuid: '', name: account.username, online: null, balance: null,
+        nation: null, nationName: null, nationRank: null, jobs: null,
+        kills: null, deaths: null, kda: null, playtime: null,
+      },
+    }
   } catch {
     return { ok: false, error: 'Erreur réseau.' }
   }
@@ -353,7 +368,10 @@ ipcMain.handle('launch:start', async (_e, dev?: boolean) => {
     (line) => {
       if (!gameStarted) {
         gameStarted = true
-        mainWindow?.minimize()
+        // Le process du jeu est détaché (voir launcherCore.ts) : il survit même
+        // si le launcher se ferme complètement.
+        if (store.get('closeOnLaunch') as boolean) app.quit()
+        else mainWindow?.minimize()
       }
       logBuffer.push(line)
       if (logBuffer.length > LOG_BUFFER_MAX) logBuffer.shift()
@@ -398,6 +416,45 @@ ipcMain.handle('launch:start', async (_e, dev?: boolean) => {
 ipcMain.on('launch:stop', () => stopLaunch())
 
 ipcMain.handle('launch:isRunning', () => isRunning())
+
+// ── Maintenance : force le retéléchargement des mods ──────────────────────────
+// Ne supprime QUE le dossier mods/ de chaque instance connue (jamais saves/,
+// options.txt, resourcepacks/... - mc-java-core retéléchargera les mods
+// manquants au prochain lancement). Corrige le cas d'un fichier corrompu sans
+// perte de progression du joueur.
+ipcMain.handle('repair:mods', async () => {
+  if (isRunning()) return { ok: false, error: 'Le jeu est en cours d\'exécution.' }
+
+  if (mainWindow) {
+    const { response } = await dialog.showMessageBox(mainWindow, {
+      type: 'warning',
+      buttons: ['Annuler', 'Confirmer'],
+      defaultId: 0,
+      cancelId: 0,
+      title: 'Réparer l\'installation',
+      message: 'Retélécharger tous les mods au prochain lancement ?',
+      detail: 'Tes mondes, captures d\'écran et réglages ne sont pas touchés. Seuls les fichiers de mods sont supprimés et seront retéléchargés.',
+    })
+    if (response !== 1) return { ok: false, cancelled: true }
+  }
+
+  const basePath = join(app.getPath('userData'), 'EarthKingdoms', 'instances')
+  let removed = 0
+  for (const instance of ['EarthKingdoms', 'EarthKingdoms-dev']) {
+    const modsDir = join(basePath, instance, 'mods')
+    if (existsSync(modsDir)) {
+      try { rmSync(modsDir, { recursive: true, force: true }); removed++ } catch { /* ignore */ }
+    }
+  }
+  wlog(`Réparation : dossiers mods supprimés (${removed})`)
+  return { ok: true }
+})
+
+// ── Démarrage automatique avec Windows ────────────────────────────────────────
+ipcMain.handle('system:getStartupEnabled', () => app.getLoginItemSettings().openAtLogin)
+ipcMain.handle('system:setStartupEnabled', (_e, enabled: boolean) => {
+  app.setLoginItemSettings({ openAtLogin: enabled })
+})
 
 // ── Logs ─────────────────────────────────────────────────────────────────────
 ipcMain.handle('logs:getAll',  () => [...logBuffer])

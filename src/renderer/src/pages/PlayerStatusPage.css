@@ -31,6 +31,22 @@
   flex-shrink: 0;
 }
 
+.player-status__na {
+  color: var(--text-muted);
+  font-weight: 700;
+  opacity: 0.8;
+}
+
+.player-status__unavailable {
+  font-size: 12px;
+  color: var(--warning);
+  background: rgba(236,130,0,0.08);
+  border: 1px solid rgba(236,130,0,0.3);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  line-height: 1.4;
+}
+
 .player-status__empty {
   color: var(--text-muted);
   font-size: 13px;

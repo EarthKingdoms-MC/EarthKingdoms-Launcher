@@ -6,9 +6,19 @@
 }
 
 .settings__content {
-  max-width: 640px;
+  max-width: 1060px;
   margin: 0 auto;
   padding: 36px 32px;
+}
+
+/* Deux colonnes - chaque section est une carte autonome (break-inside evite
+   qu'une carte soit coupée entre les deux colonnes). */
+.settings__grid {
+  column-count: 2;
+  column-gap: 22px;
+}
+@media (max-width: 760px) {
+  .settings__grid { column-count: 1; }
 }
 
 /* Page label */
@@ -33,13 +43,27 @@
 }
 
 .settings__section {
-  margin-bottom: 32px;
+  position: relative;
+  overflow: hidden;
+  break-inside: avoid-column;
+  margin-bottom: 22px;
+  padding: 20px 20px 18px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-bright);
+  border-radius: var(--radius-lg);
+}
+.settings__section::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--orange), #7C5CFC, #3BC9DB);
 }
 
 .settings__section-title {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 10px;
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 2px;
@@ -47,16 +71,43 @@
   color: var(--orange);
   margin-bottom: 12px;
 }
+.settings__section-title--muted {
+  color: var(--text-muted);
+}
+
+/* Badge circulaire coloré derrière l'icône de section - même esprit que les
+   tuiles de stats de la page Statut Joueur, pour un peu de variété visuelle
+   entre les sections plutôt que des icônes grises uniformes. */
+.settings__section-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.settings__section-icon img {
+  width: 14px;
+  height: 14px;
+  filter: invert(1);
+  opacity: 0.9;
+}
+.settings__section-icon--orange { background: rgba(236,130,0,0.16); }
+.settings__section-icon--cyan   { background: rgba(59,201,219,0.16); }
+.settings__section-icon--amber  { background: rgba(241,196,15,0.16); }
+.settings__section-icon--violet { background: rgba(124,92,252,0.16); }
+.settings__section-icon--danger { background: rgba(231,76,60,0.16); }
 
 .settings__row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 13px 16px;
-  background: var(--bg-surface);
+  background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-left: 2px solid rgba(255,240,220,0.08);
-  border-radius: 2px;
+  border-radius: 4px;
   margin-bottom: 5px;
   transition: border-left-color 200ms;
 }
@@ -88,6 +139,7 @@
   display: block;
 }
 .settings__hint--warn { color: #e06c1a; }
+.settings__hint--ok   { color: var(--success); }
 
 .settings__badge {
   font-size: 13px;
@@ -247,7 +299,7 @@
   flex: 1;
   min-width: 160px;
   padding: 6px 12px;
-  background: var(--bg-surface);
+  background: var(--bg-elevated);
   border: 1px solid var(--border-bright);
   border-radius: 3px;
   color: var(--text-secondary);
