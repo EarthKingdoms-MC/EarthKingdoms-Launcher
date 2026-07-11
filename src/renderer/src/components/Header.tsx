@@ -38,21 +38,17 @@ export default function Header({
   const [showAccountMenu, setShowAccountMenu] = useState(false)
 
   const navItems = [
-    { id: 'home',       icon: './icons/home.svg',     label: 'Accueil',     badge: newsBadge ?? 0 },
-    { id: 'mods',       icon: './icons/update.svg',   label: 'Mods',        badge: 0 },
-    { id: 'patchnotes', icon: './icons/news.svg',     label: 'Patch Notes', badge: 0 },
-    { id: 'dynmap',     icon: './icons/map.svg',      label: 'Dynmap',      badge: 0 },
-    { id: 'shop',       icon: './icons/shop.svg',     label: 'Boutique',    badge: 0 },
-    { id: 'settings',   icon: './icons/settings.svg', label: 'Paramètres',  badge: 0 },
-    { id: 'logs',       icon: './icons/logs.svg',     label: 'Logs',        badge: 0 },
+    { id: 'home',         icon: './icons/home.svg',     label: 'Accueil',       badge: newsBadge ?? 0 },
+    { id: 'mods',         icon: './icons/update.svg',   label: 'Mods',          badge: 0 },
+    { id: 'patchnotes',   icon: './icons/news.svg',     label: 'Patch Notes',   badge: 0 },
+    { id: 'dynmap',       icon: './icons/map.svg',      label: 'Livemap',       badge: 0 },
+    { id: 'shop',         icon: './icons/shop.svg',     label: 'Boutique',      badge: 0 },
+    { id: 'settings',     icon: './icons/settings.svg', label: 'Paramètres',    badge: 0 },
+    { id: 'logs',         icon: './icons/logs.svg',     label: 'Logs',          badge: 0 },
   ] as { id: Page; icon: string; label: string; badge: number }[]
 
   function handleProfileClick() {
-    if (accounts.length > 1 || onAddAccount) {
-      setShowAccountMenu(v => !v)
-    } else {
-      onOpenSkin()
-    }
+    setShowAccountMenu(v => !v)
   }
 
   function closeMenu() {
@@ -95,53 +91,88 @@ export default function Header({
           <button
             className="header__profile"
             onClick={handleProfileClick}
-            title={accounts.length > 1 ? 'Gérer les comptes' : 'Gérer le skin'}
+            title="Mon compte"
           >
             {headUrl
               ? <img src={headUrl} className="header__avatar" alt="head" />
               : <img src="./icons/avatar-default.svg" className="header__avatar header__avatar--fallback" alt="avatar" />
             }
             <span className="header__username">{username}</span>
-            {(accounts.length > 1 || onAddAccount) && (
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style={{ marginLeft: 2, opacity: 0.85 }}>
-                <path d="M7 10l5 5 5-5z"/>
-              </svg>
-            )}
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style={{ marginLeft: 2, opacity: 0.85 }}>
+              <path d="M7 10l5 5 5-5z"/>
+            </svg>
           </button>
 
           {showAccountMenu && (
             <>
               <div className="header__account-backdrop" onClick={closeMenu} />
               <div className="header__account-menu">
-                <div className="header__account-menu-title">Comptes</div>
-                {accounts.map(acc => (
-                  <div key={acc.uuid} className={`header__account-item${acc.uuid === activeUuid ? ' header__account-item--active' : ''}`}>
-                    <button
-                      className="header__account-switch"
-                      onClick={() => { onSwitchAccount?.(acc.uuid); closeMenu() }}
-                      disabled={acc.uuid === activeUuid}
-                    >
-                      <span className="header__account-dot" />
-                      <span>{acc.username}</span>
-                      {!!acc.isAdmin && <span className="header__account-admin">ADMIN</span>}
-                    </button>
-                    {acc.uuid !== activeUuid && (
-                      <button
-                        className="header__account-remove"
-                        data-sound="close"
-                        title="Retirer ce compte"
-                        onClick={() => { onRemoveAccount?.(acc.uuid); closeMenu() }}
-                      >✕</button>
+                <div className="header__account-current">
+                  {headUrl
+                    ? <img src={headUrl} className="header__account-current-avatar" alt="head" />
+                    : <img src="./icons/avatar-default.svg" className="header__account-current-avatar header__avatar--fallback" alt="avatar" />
+                  }
+                  <div className="header__account-current-info">
+                    <span className="header__account-current-name">{username}</span>
+                    {accounts.find(a => a.uuid === activeUuid)?.isAdmin && (
+                      <span className="header__account-admin">ADMIN</span>
                     )}
                   </div>
-                ))}
+                </div>
+
                 <div className="header__account-menu-sep" />
+
+                <button className="header__account-action" onClick={() => { onNavigate('playerstatus'); closeMenu() }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                  </svg>
+                  Mon profil
+                </button>
                 <button className="header__account-action" onClick={() => { onOpenSkin(); closeMenu() }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/>
+                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                    <path d="M21 15l-5-5L5 21"/>
+                  </svg>
                   Gérer le skin
                 </button>
+
+                {accounts.length > 1 && (
+                  <>
+                    <div className="header__account-menu-sep" />
+                    <div className="header__account-menu-title">Comptes</div>
+                    {accounts.filter(acc => acc.uuid !== activeUuid).map(acc => (
+                      <div key={acc.uuid} className="header__account-item">
+                        <button
+                          className="header__account-switch"
+                          onClick={() => { onSwitchAccount?.(acc.uuid); closeMenu() }}
+                        >
+                          <span className="header__account-dot" />
+                          <span>{acc.username}</span>
+                          {!!acc.isAdmin && <span className="header__account-admin">ADMIN</span>}
+                        </button>
+                        <button
+                          className="header__account-remove"
+                          data-sound="close"
+                          title="Retirer ce compte"
+                          onClick={() => { onRemoveAccount?.(acc.uuid); closeMenu() }}
+                        >✕</button>
+                      </div>
+                    ))}
+                  </>
+                )}
+
+                <div className="header__account-menu-sep" />
                 {onAddAccount && (
                   <button className="header__account-action" onClick={() => { onAddAccount(); closeMenu() }}>
-                    + Ajouter un compte
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                      <circle cx="9" cy="7" r="4"/>
+                      <line x1="19" y1="8" x2="19" y2="14"/>
+                      <line x1="22" y1="11" x2="16" y2="11"/>
+                    </svg>
+                    Ajouter un compte
                   </button>
                 )}
                 {onLogout && (
@@ -150,6 +181,11 @@ export default function Header({
                     data-sound="close"
                     onClick={() => { onLogout(); closeMenu() }}
                   >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                      <polyline points="16 17 21 12 16 7"/>
+                      <line x1="21" y1="12" x2="9" y2="12"/>
+                    </svg>
                     Déconnecter {username}
                   </button>
                 )}

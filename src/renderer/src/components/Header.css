@@ -201,13 +201,43 @@
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  min-width: 200px;
+  min-width: 240px;
   background: rgba(13,13,24,0.98);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 6px;
+  border: 1px solid var(--border-bright);
+  border-radius: 10px;
+  padding: 8px;
   z-index: 201;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  box-shadow: 0 12px 36px rgba(0,0,0,0.65);
+}
+
+/* En-tête : compte actif (avatar + pseudo + badge), purement informatif */
+.header__account-current {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 8px 10px;
+}
+.header__account-current-avatar {
+  width: 36px; height: 36px;
+  border-radius: 6px;
+  image-rendering: pixelated;
+  background: var(--bg-elevated);
+  flex-shrink: 0;
+}
+.header__account-current-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.header__account-current-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .header__account-menu-title {
@@ -216,23 +246,20 @@
   letter-spacing: 2px;
   text-transform: uppercase;
   color: var(--text-muted);
-  padding: 4px 8px 6px;
+  padding: 6px 8px 6px;
 }
 
 .header__account-menu-sep {
   height: 1px;
   background: var(--border);
-  margin: 4px 0;
+  margin: 4px 4px;
 }
 
 .header__account-item {
   display: flex;
   align-items: center;
-  border-radius: 5px;
+  border-radius: 6px;
   overflow: hidden;
-}
-.header__account-item--active {
-  background: rgba(236,130,0,0.08);
 }
 
 .header__account-switch {
@@ -240,7 +267,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 7px 8px;
+  padding: 8px 9px;
   background: transparent;
   border: none;
   color: var(--text-secondary);
@@ -249,17 +276,13 @@
   font-weight: 600;
   cursor: pointer;
   text-align: left;
-  border-radius: 5px;
+  border-radius: 6px;
   transition: color 150ms, background 150ms;
   -webkit-app-region: no-drag;
 }
-.header__account-switch:hover:not(:disabled) {
-  background: rgba(255,255,255,0.06);
+.header__account-switch:hover {
+  background: rgba(255,255,255,0.07);
   color: var(--text);
-}
-.header__account-switch:disabled {
-  color: var(--text);
-  cursor: default;
 }
 
 .header__account-dot {
@@ -269,10 +292,6 @@
   background: var(--border);
   flex-shrink: 0;
 }
-.header__account-item--active .header__account-dot {
-  background: var(--orange);
-  box-shadow: 0 0 6px rgba(236,130,0,0.6);
-}
 
 .header__account-admin {
   font-size: 9px;
@@ -281,14 +300,15 @@
   color: var(--orange);
   border: 1px solid rgba(236,130,0,0.4);
   border-radius: 3px;
-  padding: 1px 4px;
+  padding: 2px 5px;
   margin-left: auto;
+  flex-shrink: 0;
 }
 
 .header__account-remove {
   flex-shrink: 0;
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -297,7 +317,7 @@
   color: var(--text-muted);
   font-size: 11px;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 5px;
   transition: color 150ms, background 150ms;
   margin-right: 2px;
   -webkit-app-region: no-drag;
@@ -308,28 +328,32 @@
 }
 
 .header__account-action {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   width: 100%;
-  padding: 7px 10px;
+  padding: 9px 10px;
   background: transparent;
   border: none;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-family: 'Rajdhani', sans-serif;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
   cursor: pointer;
   text-align: left;
-  border-radius: 5px;
+  border-radius: 6px;
   transition: color 150ms, background 150ms;
   -webkit-app-region: no-drag;
 }
+.header__account-action svg { flex-shrink: 0; opacity: 0.75; transition: opacity 150ms; }
 .header__account-action:hover {
-  background: rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.07);
   color: var(--text);
 }
+.header__account-action:hover svg { opacity: 1; }
 .header__account-action--danger {
-  color: rgba(231,76,60,0.7);
+  color: rgba(231,76,60,0.75);
 }
 .header__account-action--danger:hover {
   background: rgba(231,76,60,0.08);

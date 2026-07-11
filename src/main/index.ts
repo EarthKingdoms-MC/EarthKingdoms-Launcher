@@ -65,7 +65,9 @@ function createWindow(): void {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      // Le preload n'utilise que contextBridge/ipcRenderer (aucun require() de
+      // module Node arbitraire) - entièrement compatible avec le mode sandbox.
+      sandbox: true,
       webviewTag: true,
     }
   })
@@ -158,6 +160,21 @@ ipcMain.handle('server:status', async () => {
     }
   } catch {
     return { online: false }
+  }
+})
+
+// ── Statut joueur (nation, solde, stats…) ────────────────────────────────────
+ipcMain.handle('status:player', async () => {
+  const account = getActiveAccount()
+  if (!account) return { ok: false, error: 'Non connecté.' }
+  try {
+    const res = await ekFetch('https://earthkingdoms-mc.fr/api/launcher/player', {
+      headers: { Authorization: `Bearer ${account.token}` },
+    })
+    if (!res.ok) return { ok: false, error: `Erreur serveur (${res.status})` }
+    return { ok: true, player: await res.json() }
+  } catch {
+    return { ok: false, error: 'Erreur réseau.' }
   }
 })
 
@@ -314,14 +331,14 @@ ipcMain.handle('skin:upload', async (_e, fileData: number[]) => {
 })
 
 // ── Lancement Minecraft ───────────────────────────────────────────────────────
-ipcMain.handle('launch:start', async () => {
+ipcMain.handle('launch:start', async (_e, dev?: boolean) => {
   const account = await getAccount()
   if (!account) return { ok: false, error: 'Non connecté.' }
 
   const ram      = (store.get('ram')      as number)        || 4
   const javaPath = (store.get('javaPath') as string | null) || null
 
-  wlog(`Launch: démarrage — user=${account.username} ram=${ram}Go java=${javaPath ?? 'embarqué'}`)
+  wlog(`Launch: démarrage — user=${account.username} ram=${ram}Go java=${javaPath ?? 'embarqué'}${dev ? ' [DEV]' : ''}`)
   logBuffer.length = 0  // vide le buffer au nouveau lancement
   launchStartTime = Date.now()
   let gameStarted = false
@@ -366,11 +383,13 @@ ipcMain.handle('launch:start', async () => {
       mainWindow?.webContents.send('launch:error', { message })
       mainWindow?.webContents.send('launch:state', { running: false })
       if (mainWindow?.isMinimized()) { mainWindow.restore(); mainWindow.focus() }
-    }
+    },
+
+    dev === true
   )
 
   if (result.ok) {
-    mainWindow?.webContents.send('launch:state', { running: true })
+    mainWindow?.webContents.send('launch:state', { running: true, dev: dev === true })
   }
 
   return result

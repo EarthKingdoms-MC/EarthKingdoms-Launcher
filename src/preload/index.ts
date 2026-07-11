@@ -27,6 +27,9 @@ contextBridge.exposeInMainWorld('api', {
   // Statut serveur
   serverStatus: () => ipcRenderer.invoke('server:status'),
 
+  // Statut joueur
+  statusPlayer: () => ipcRenderer.invoke('status:player'),
+
   // Actualités
   newsLoad: () => ipcRenderer.invoke('news:load'),
 
@@ -38,7 +41,7 @@ contextBridge.exposeInMainWorld('api', {
   skinHistoryRestore: (id: string)       => ipcRenderer.invoke('skin:historyRestore', id),
 
   // Lancement Minecraft
-  launchStart:     () => ipcRenderer.invoke('launch:start'),
+  launchStart:     (dev?: boolean) => ipcRenderer.invoke('launch:start', dev),
   launchStop:      () => ipcRenderer.send('launch:stop'),
   launchIsRunning: () => ipcRenderer.invoke('launch:isRunning'),
 

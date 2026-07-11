@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import './DynmapPage.css'
 
-const DYNMAP_URL = 'https://earthkingdoms-mc.fr/dynmap/'
+// URL brute de la carte, sans le chrome du site (header/nav) - /dynmap redirige
+// maintenant vers la page /livemap complète (avec nav), donc on pointe direct
+// sur le fichier statique qu'elle embarque elle-même en iframe.
+const DYNMAP_URL = 'https://earthkingdoms-mc.fr/livemap/index.html'
 
 // Déclaration du type Electron webview pour TypeScript
 declare global {
@@ -56,7 +59,7 @@ export default function DynmapPage() {
       {loading && !error && (
         <div className="dynmap__overlay">
           <div className="dynmap__overlay-icon">◈</div>
-          <span className="dynmap__overlay-text">Chargement de la Dynmap…</span>
+          <span className="dynmap__overlay-text">Chargement de la Livemap…</span>
         </div>
       )}
 
@@ -64,7 +67,7 @@ export default function DynmapPage() {
       {error && (
         <div className="dynmap__overlay">
           <div className="dynmap__overlay-icon dynmap__overlay-icon--warn">⚠</div>
-          <div className="dynmap__overlay-title">Dynmap indisponible</div>
+          <div className="dynmap__overlay-title">Livemap indisponible</div>
           <div className="dynmap__overlay-sub">
             Impossible de charger la carte. Vérifie ta connexion.
           </div>

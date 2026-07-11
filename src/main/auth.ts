@@ -1,6 +1,6 @@
 import crypto from 'crypto'
 import { app, net } from 'electron'
-import { store, Account } from './store'
+import { store, Account, getStoredAccounts, setStoredAccounts, getStoredAccount, setStoredAccount } from './store'
 
 const API = 'https://earthkingdoms-mc.fr/api'
 
@@ -32,10 +32,10 @@ async function apiFetch(path: string, options?: RequestInit): Promise<Response> 
 
 /** Migre l'ancien format mono-compte vers le nouveau format multi-compte si nécessaire. */
 function migrateIfNeeded(): void {
-  const accounts   = (store.get('accounts')  as Account[])      ?? []
-  const oldAccount =  store.get('account')   as Account | null
+  const accounts   = getStoredAccounts()
+  const oldAccount = getStoredAccount()
   if (accounts.length === 0 && oldAccount) {
-    store.set('accounts',        [oldAccount])
+    setStoredAccounts([oldAccount])
     store.set('activeAccountId', oldAccount.uuid)
   }
 }
@@ -43,7 +43,7 @@ function migrateIfNeeded(): void {
 /** Récupère le compte actif depuis la liste (synchrone, sans refresh). */
 export function getActiveAccount(): Account | null {
   migrateIfNeeded()
-  const accounts = (store.get('accounts')       as Account[]) ?? []
+  const accounts = getStoredAccounts()
   const activeId =  store.get('activeAccountId') as string | null
   if (!activeId || accounts.length === 0) return null
   return accounts.find(a => a.uuid === activeId) ?? null
@@ -51,23 +51,23 @@ export function getActiveAccount(): Account | null {
 
 /** Met à jour un compte dans la liste (upsert par uuid). */
 function upsertAccount(updated: Account): void {
-  const accounts = [...((store.get('accounts') as Account[]) ?? [])]
+  const accounts = getStoredAccounts()
   const idx = accounts.findIndex(a => a.uuid === updated.uuid)
   if (idx >= 0) accounts[idx] = updated
   else accounts.push(updated)
-  store.set('accounts', accounts)
+  setStoredAccounts(accounts)
 }
 
 /** Retourne la liste des comptes pour affichage (sans tokens). */
 export function getAccounts(): Array<{ username: string; uuid: string; isAdmin: boolean }> {
   migrateIfNeeded()
-  const accounts = (store.get('accounts') as Account[]) ?? []
+  const accounts = getStoredAccounts()
   return accounts.map(({ username, uuid, isAdmin }) => ({ username, uuid, isAdmin }))
 }
 
 /** Définit le compte actif par uuid. */
 export function switchAccount(uuid: string): Account | null {
-  const accounts = (store.get('accounts') as Account[]) ?? []
+  const accounts = getStoredAccounts()
   if (accounts.find(a => a.uuid === uuid)) {
     store.set('activeAccountId', uuid)
     return accounts.find(a => a.uuid === uuid) ?? null
@@ -77,13 +77,13 @@ export function switchAccount(uuid: string): Account | null {
 
 /** Retire un compte de la liste. Retourne le nouveau compte actif (ou null). */
 export function removeAccount(uuid: string): Account | null {
-  const accounts = [...((store.get('accounts') as Account[]) ?? [])].filter(a => a.uuid !== uuid)
-  store.set('accounts', accounts)
+  const accounts = getStoredAccounts().filter(a => a.uuid !== uuid)
+  setStoredAccounts(accounts)
   const activeId = store.get('activeAccountId') as string | null
   if (activeId === uuid) {
     const next = accounts[0] ?? null
     store.set('activeAccountId', next?.uuid ?? null)
-    store.set('account', next)
+    setStoredAccount(next)
     return next
   }
   return getActiveAccount()
@@ -119,20 +119,23 @@ export async function login(
     return { ok: false, code: res.status, message: messages[res.status] ?? `Erreur ${res.status}.` }
   }
 
-  const data = await res.json() as { token: string; expires: number; username: string; is_admin: boolean }
+  const data = await res.json() as {
+    token: string; expires: number; username: string; is_admin: boolean; dev_server_access?: boolean
+  }
   // L'API retourne expires en ms si > 10^12, on normalise en secondes
   const expiresSeconds = data.expires > 1e12 ? Math.floor(data.expires / 1000) : data.expires
   const account: Account = {
-    username:     data.username,
-    uuid:         makeUUID(data.username),
-    token:        data.token,
-    tokenExpires: expiresSeconds,
-    isAdmin:      data.is_admin,
+    username:            data.username,
+    uuid:                makeUUID(data.username),
+    token:               data.token,
+    tokenExpires:        expiresSeconds,
+    isAdmin:             data.is_admin,
+    canAccessDevServer:  data.dev_server_access ?? false,
   }
 
   upsertAccount(account)
   store.set('activeAccountId', account.uuid)
-  store.set('account', account)  // compat legacy
+  setStoredAccount(account)  // compat legacy
 
   return { ok: true, account }
 }
@@ -146,12 +149,19 @@ async function refreshToken(account: Account): Promise<Account | null> {
       headers: { Authorization: `Bearer ${account.token}` },
     })
     if (!res.ok) return null
-    const data = await res.json() as { success: boolean; token: string; expires: number }
+    const data = await res.json() as {
+      success: boolean; token: string; expires: number; dev_server_access?: boolean
+    }
     if (!data.success) return null
     const expiresSeconds = data.expires > 1e12 ? Math.floor(data.expires / 1000) : data.expires
-    const updated: Account = { ...account, token: data.token, tokenExpires: expiresSeconds }
+    const updated: Account = {
+      ...account,
+      token:               data.token,
+      tokenExpires:        expiresSeconds,
+      canAccessDevServer:  data.dev_server_access ?? account.canAccessDevServer,
+    }
     upsertAccount(updated)
-    store.set('account', updated)
+    setStoredAccount(updated)
     return updated
   } catch {
     return null
@@ -177,7 +187,7 @@ export async function getAccount(): Promise<Account | null> {
 
   // Token expiré → retirer ce compte
   removeAccount(account.uuid)
-  store.set('account', null)
+  setStoredAccount(null)
   return null
 }
 

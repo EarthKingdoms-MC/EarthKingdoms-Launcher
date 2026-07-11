@@ -4,6 +4,7 @@ import fs      from 'fs'
 import { store } from './store'
 import type { Account } from './store'
 import { getActiveAccount, getLauncherUA } from './auth'
+import { ensureDevServerEntry } from './devServer'
 
 // Patch global.fetch pour mc-java-core :
 //  1. Force HTTPS (le JSON contient des URLs http://)
@@ -107,14 +108,21 @@ export function startLaunch(
   onProgress: (data: LaunchProgressEvent) => void,
   onLog:      (line: string) => void,
   onClose:    (code: number | null) => void,
-  onError:    (err: string) => void
+  onError:    (err: string) => void,
+  dev = false
 ): { ok: boolean; error?: string } {
 
   if (isRunning()) return { ok: false, error: 'Minecraft est déjà en cours d\'exécution.' }
 
-  const userData    = app.getPath('userData')
-  const basePath    = path.join(userData, 'EarthKingdoms')        // racine mc-java-core
-  const instanceDir = path.join(basePath, 'instances', 'EarthKingdoms') // dossier Minecraft
+  const userData     = app.getPath('userData')
+  const basePath     = path.join(userData, 'EarthKingdoms')        // racine mc-java-core
+  // Dossier séparé pour la version dev - même modpack (aucune instance de fichiers
+  // dev distincte côté serveur), seul le serveur Minecraft rejoint diffère, ajouté
+  // à sa propre liste multijoueur pour ne jamais toucher aux configs/logs de la prod.
+  const instanceName = dev ? 'EarthKingdoms-dev' : 'EarthKingdoms'
+  const instanceDir  = path.join(basePath, 'instances', instanceName) // dossier Minecraft
+
+  if (dev) ensureDevServerEntry(instanceDir)
 
   const authenticator = {
     name:          account.username,
@@ -182,12 +190,17 @@ export function startLaunch(
   const resWidth  = (storedW  && storedW  !== 1920) ? storedW  : 854
   const resHeight = (storedH  && storedH  !== 1080) ? storedH  : 480
 
+  // Instance de fichiers côté serveur - le modpack dev diffère substantiellement
+  // de la prod (ekcore fusionné, outils de worldgen/debug en plus), d'où une
+  // instance distincte plutôt qu'un simple flag sur la même instance.
+  const filesInstance = dev ? 'EarthKingdomsV4-beta-dev' : 'EarthKingdomsV4-beta'
+
   const options = {
-    url: 'https://earthkingdoms-mc.fr/launcher/files/?instance=EarthKingdomsV4-beta',
+    url: `https://earthkingdoms-mc.fr/launcher/files/?instance=${filesInstance}`,
     authenticator,
     timeout:       300000,
     path:          basePath,         // dossier BASE — mc-java-core y crée /instances/, /versions/, /libraries/…
-    instance:      'EarthKingdoms',
+    instance:      instanceName,
     version:       '1.20.1',
     detached:      true,
     loader: {

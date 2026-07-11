@@ -10,6 +10,7 @@ import ModsPage      from './pages/ModsPage'
 import PatchNotesPage from './pages/PatchNotesPage'
 import DynmapPage    from './pages/DynmapPage'
 import ShopPage      from './pages/ShopPage'
+import PlayerStatusPage from './pages/PlayerStatusPage'
 import { Account }   from './hooks/useSkin'
 import { playClick, playPlay, playClose, setSoundEnabled } from './utils/sounds'
 
@@ -55,7 +56,7 @@ class ErrorBoundary extends Component<
   }
 }
 
-export type Page = 'home' | 'settings' | 'logs' | 'mods' | 'patchnotes' | 'dynmap' | 'shop'
+export type Page = 'home' | 'settings' | 'logs' | 'mods' | 'patchnotes' | 'dynmap' | 'shop' | 'playerstatus'
 
 type AppState = 'loading' | 'updating' | 'login' | 'app'
 
@@ -418,7 +419,7 @@ export default function App() {
 
       <main style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
         <ErrorBoundary key={page}>
-          {page === 'home'       && <HomePage />}
+          {page === 'home'       && <HomePage canPlayDev={account!.canAccessDevServer} />}
           {page === 'settings'   && (
             <SettingsPage
               savedRam={ram}      onSaveRam={handleSaveRam}
@@ -431,6 +432,7 @@ export default function App() {
           {page === 'patchnotes' && <PatchNotesPage />}
           {page === 'dynmap'     && <DynmapPage />}
           {page === 'shop'       && <ShopPage />}
+          {page === 'playerstatus' && <PlayerStatusPage />}
         </ErrorBoundary>
       </main>
 

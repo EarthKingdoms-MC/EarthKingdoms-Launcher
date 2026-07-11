@@ -40,3 +40,6 @@ Thumbs.db
 
 # Electron dev cache
 .electron-builder-cache/
+
+# TypeScript incremental build info
+*.tsbuildinfo

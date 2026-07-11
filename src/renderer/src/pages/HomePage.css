@@ -158,6 +158,31 @@
   color: var(--success);
 }
 
+/* ── Boutons de lancement ─────────────────────────────── */
+.home__play-buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  max-width: 400px;
+}
+
+/* Bouton DEV — même style que btn-play mais plus petit et en violet, pour
+   qu'il ne soit jamais confondu avec le bouton de jeu principal. */
+.btn-play--dev {
+  height: 40px;
+  padding: 0 28px;
+  font-size: 14px;
+  letter-spacing: 3px;
+  background: linear-gradient(100deg, #5A3FC4 0%, #7C5CFC 45%, #9B7DFF 100%);
+  box-shadow: 0 0 20px rgba(124,92,252,0.35), 0 4px 16px rgba(0,0,0,0.4);
+}
+.btn-play--dev:hover {
+  box-shadow: 0 0 40px rgba(124,92,252,0.55), 0 8px 20px rgba(0,0,0,0.5);
+  letter-spacing: 3.5px;
+}
+
 /* ── Loading ────────────────────────────────────────── */
 .home__loading {
   width: 400px;
@@ -167,12 +192,23 @@
 }
 .home__loading-label {
   display: flex;
-  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
   font-size: 12px;
   letter-spacing: 0.5px;
   color: var(--text-secondary);
 }
-.home__loading-pct { color: var(--orange); font-weight: 700; }
+.home__loading-pct { color: var(--orange); font-weight: 700; margin-left: auto; }
+.home__loading-dev-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #9B7DFF;
+  border: 1px solid rgba(124,92,252,0.5);
+  background: rgba(124,92,252,0.12);
+  border-radius: 3px;
+  padding: 2px 6px;
+}
 
 .home__launch-error {
   width: 400px;

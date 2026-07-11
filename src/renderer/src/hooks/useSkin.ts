@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 
 export interface Account {
-  username:     string
-  uuid:         string
-  token:        string
-  tokenExpires: number
-  isAdmin:      boolean
+  username:            string
+  uuid:                string
+  token:               string
+  tokenExpires:        number
+  isAdmin:             boolean
+  canAccessDevServer:  boolean
 }
 
 export interface ServerStatus {
@@ -44,6 +45,26 @@ export interface LaunchProfile {
   javaPath: string | null
 }
 
+export interface GameJob {
+  name:  string | Record<string, unknown>
+  level: number
+}
+
+export interface GamePlayer {
+  uuid:       string
+  name:       string
+  online:     boolean
+  balance:    number
+  nation:     string | null
+  nationName: string | null
+  nationRank: string | null
+  jobs:       GameJob[]
+  kills:      number
+  deaths:     number
+  kda:        number
+  playtime:   string
+}
+
 declare global {
   interface Window {
     api: {
@@ -66,6 +87,8 @@ declare global {
 
       serverStatus(): Promise<ServerStatus | { online: false }>
 
+      statusPlayer(): Promise<{ ok: boolean; player?: GamePlayer; error?: string }>
+
       newsLoad(): Promise<string | null>
       skinLoad(username: string): Promise<string | null>
       skinLoadUrl(url: string): Promise<string | null>
@@ -73,7 +96,7 @@ declare global {
       skinHistoryList(): Promise<{ ok: boolean; history?: SkinHistoryItem[]; error?: string }>
       skinHistoryRestore(id: string): Promise<{ ok: boolean; error?: string }>
 
-      launchStart(): Promise<{ ok: boolean; error?: string }>
+      launchStart(dev?: boolean): Promise<{ ok: boolean; error?: string }>
       launchStop(): void
       launchIsRunning(): Promise<boolean>
 

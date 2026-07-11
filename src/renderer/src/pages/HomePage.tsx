@@ -11,11 +11,16 @@ const STEP_LABELS: Record<string, string> = {
   patch:    'Mise à jour de Minecraft…',
 }
 
-export default function HomePage() {
+interface Props {
+  canPlayDev: boolean
+}
+
+export default function HomePage({ canPlayDev }: Props) {
   const { news, loading: newsLoading }     = useNews()
   const { status, loading: serverLoading } = useServerStatus()
 
   const [launching,    setLaunching]    = useState(false)
+  const [launchDev,    setLaunchDev]    = useState(false)  // true si le lancement en cours est la version DEV
   const [progress,     setProgress]     = useState(-1)  // -1 = indéterminé
   const [stepLabel,    setStepLabel]    = useState('')
   const [launchErr,    setLaunchErr]    = useState('')
@@ -84,16 +89,17 @@ export default function HomePage() {
     }
   }, [])
 
-  async function handlePlay() {
+  async function handlePlay(dev = false) {
     if (launching) return
     setLaunchErr('')
     setLaunching(true)
+    setLaunchDev(dev)
     setProgress(-1)
     setStepLabel('Initialisation…')
     setVerifiedOnly(false)
     hadDownload.current = false
 
-    const result = await window.api.launchStart()
+    const result = await window.api.launchStart(dev)
     if (!result.ok) {
       setLaunchErr(result.error ?? 'Erreur inconnue.')
       setLaunching(false)
@@ -145,20 +151,35 @@ export default function HomePage() {
           )}
 
           {!launching ? (
-            <button
-              className="btn-play"
-              data-sound="play"
-              onClick={handlePlay}
-              disabled={!status.online && !serverLoading}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <polygon points="5 3 19 12 5 21 5 3"/>
-              </svg>
-              {serverLoading ? 'CHARGEMENT…' : status.online ? 'JOUER' : 'HORS LIGNE'}
-            </button>
+            <div className="home__play-buttons">
+              <button
+                className="btn-play"
+                data-sound="play"
+                onClick={() => handlePlay(false)}
+                disabled={!status.online && !serverLoading}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <polygon points="5 3 19 12 5 21 5 3"/>
+                </svg>
+                {serverLoading ? 'CHARGEMENT…' : status.online ? 'JOUER' : 'HORS LIGNE'}
+              </button>
+              {canPlayDev && (
+              <button
+                className="btn-play btn-play--dev"
+                data-sound="play"
+                onClick={() => handlePlay(true)}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <polygon points="5 3 19 12 5 21 5 3"/>
+                </svg>
+                JOUER — DEV
+              </button>
+              )}
+            </div>
           ) : (
             <div className="home__loading">
               <div className="home__loading-label">
+                {launchDev && <span className="home__loading-dev-badge">DEV</span>}
                 <span style={verifiedOnly ? { color: 'var(--success)' } : undefined}>
                   {stepLabel || 'Préparation…'}
                 </span>

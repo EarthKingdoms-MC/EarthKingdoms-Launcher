@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  typecheck-and-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - run: npx tsc -p tsconfig.node.json --noEmit
+      - run: npx tsc -p tsconfig.web.json --noEmit
+
+      - run: npm run lint
+        continue-on-error: true # dette de code pré-existante (any, catch vides...) - ne bloque pas la CI pour l'instant

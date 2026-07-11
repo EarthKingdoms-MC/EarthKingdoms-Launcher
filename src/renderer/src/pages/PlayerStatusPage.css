@@ -1,0 +1,305 @@
+.player-status {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+  background: var(--bg-main);
+}
+
+.player-status__header {
+  padding: 24px 28px 16px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.player-status__title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.player-status__title::before {
+  content: '';
+  display: inline-block;
+  width: 18px;
+  height: 2px;
+  background: var(--orange);
+  flex-shrink: 0;
+}
+
+.player-status__empty {
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 20px 28px;
+}
+.player-status__empty--error { color: var(--error); }
+
+.player-status__content {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 20px 28px 28px;
+  max-width: 760px;
+}
+
+/* ── Bandeau identité ─────────────────────────────────────────── */
+.player-status__hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 22px 26px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-bright);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.player-status__hero::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--orange), #7C5CFC, #3BC9DB);
+}
+
+.player-status__hero-avatar {
+  position: relative;
+  flex-shrink: 0;
+  width: 64px;
+  height: 64px;
+  border-radius: 10px;
+  background: var(--bg-elevated);
+  border: 2px solid rgba(255,240,220,0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.player-status__hero-avatar img {
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  object-fit: cover;
+}
+.player-status__hero-avatar--fallback {
+  width: 60% !important;
+  height: 60% !important;
+  filter: invert(1);
+  opacity: 0.5;
+  image-rendering: auto !important;
+}
+.player-status__hero-dot {
+  position: absolute;
+  bottom: -1px; right: -1px;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  border: 2px solid var(--bg-surface);
+}
+.player-status__hero-dot--on {
+  background: var(--success);
+  box-shadow: 0 0 8px rgba(46,204,113,0.6);
+}
+.player-status__hero-avatar--online {
+  border-color: rgba(46,204,113,0.5);
+  box-shadow: 0 0 0 3px rgba(46,204,113,0.12);
+}
+
+.player-status__hero-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.player-status__hero-name-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.player-status__hero-name {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.player-status__hero-online {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+}
+.player-status__hero-online--on { color: var(--success); }
+
+.player-status__hero-tags {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.player-status__tag {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border-bright);
+  border-radius: 4px;
+  padding: 3px 9px;
+}
+.player-status__tag--accent {
+  color: var(--orange);
+  background: rgba(236,130,0,0.1);
+  border-color: rgba(236,130,0,0.4);
+}
+.player-status__tag--muted {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.player-status__hero-balance {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+  padding-left: 20px;
+  border-left: 1px solid var(--border);
+}
+.player-status__hero-balance-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.player-status__hero-balance-value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 26px;
+  color: var(--orange);
+  letter-spacing: 0.5px;
+}
+
+/* ── Stats de combat ──────────────────────────────────────────── */
+.player-status__stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.player-status__stat-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 18px 10px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  text-align: center;
+}
+
+.player-status__stat-icon {
+  width: 38px; height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(236,130,0,0.1);
+  color: var(--orange);
+  margin-bottom: 2px;
+}
+.player-status__stat-icon--danger {
+  background: rgba(231,76,60,0.1);
+  color: var(--error);
+}
+.player-status__stat-icon--info {
+  background: rgba(59,201,219,0.12);
+  color: #3BC9DB;
+}
+.player-status__stat-icon--time {
+  background: rgba(124,92,252,0.12);
+  color: #7C5CFC;
+}
+
+.player-status__stat-value {
+  font-size: 22px;
+  color: var(--text);
+  line-height: 1;
+}
+.player-status__stat-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* ── Métiers ──────────────────────────────────────────────────── */
+.player-status__jobs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.player-status__section-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.player-status__jobs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.player-status__job-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 10px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  text-align: center;
+  transition: border-color 150ms, background 150ms;
+}
+.player-status__job-card:hover {
+  border-color: rgba(236,130,0,0.35);
+  background: rgba(236,130,0,0.03);
+}
+
+.player-status__job-icon {
+  width: 40px; height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid rgba(255,240,220,0.1);
+}
+
+.player-status__job-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.player-status__job-level {
+  font-size: 15px;
+  letter-spacing: 0.5px;
+}
