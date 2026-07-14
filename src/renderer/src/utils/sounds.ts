@@ -1,4 +1,4 @@
-// ── Sons UI — HTMLAudioElement pré-chargé + préchauffage pipeline ──────────
+// ── Sons UI - HTMLAudioElement pré-chargé + préchauffage pipeline ──────────
 //
 // Stratégie anti-latence :
 //   1. Pool de 2 instances par son, chargées au démarrage (preload:'auto')

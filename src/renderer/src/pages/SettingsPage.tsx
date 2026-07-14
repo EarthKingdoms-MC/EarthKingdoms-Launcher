@@ -4,10 +4,10 @@ import type { LaunchProfile } from '../hooks/useSkin'
 import { setSoundEnabled } from '../utils/sounds'
 
 function ramHint(ram: number): string {
-  if (ram < 4)  return 'En dessous du minimum — risque de lag et de crash.'
+  if (ram < 4)  return 'En dessous du minimum - risque de lag et de crash.'
   if (ram <= 6) return 'Optimal pour EarthKingdoms. Bonne marge pour le système.'
   if (ram <= 10) return 'Confortable. Utile si tu as des shaders actifs.'
-  return 'Attention — laisse au moins 4 Go au système d\'exploitation.'
+  return 'Attention - laisse au moins 4 Go au système d\'exploitation.'
 }
 
 const RES_PRESETS = [
@@ -184,7 +184,7 @@ export default function SettingsPage({
     try {
       const res = await window.api.repairMods()
       if (res.cancelled) { setRepairMsg(null) }
-      else if (res.ok)    { setRepairMsg('✓ Fait — les mods seront retéléchargés au prochain lancement.') }
+      else if (res.ok)    { setRepairMsg('✓ Fait - les mods seront retéléchargés au prochain lancement.') }
       else                { setRepairMsg(res.error ?? 'Erreur inconnue.') }
     } catch {
       setRepairMsg('Erreur inconnue.')
@@ -198,7 +198,7 @@ export default function SettingsPage({
     setUpdateMsg(null)
     try {
       const res = await window.api.updateCheck()
-      if (res.available) setUpdateMsg('Mise à jour trouvée — téléchargement en cours…')
+      if (res.available) setUpdateMsg('Mise à jour trouvée - téléchargement en cours…')
       else if (res.macUpdate && res.latestVersion) setUpdateMsg(`Version ${res.latestVersion} disponible (voir GitHub).`)
       else setUpdateMsg('✓ Tu es à jour.')
     } catch {

@@ -50,7 +50,7 @@ const _nativeFetch = global.fetch
           if (entry.path?.startsWith('modadmin/')) {
             // Double vérification client : isAdmin doit être true (défense en profondeur).
             // TODO: une fois le serveur mis à jour, il n'enverra ces fichiers
-            // qu'aux tokens admin — la sécurité principale sera côté serveur.
+            // qu'aux tokens admin - la sécurité principale sera côté serveur.
             if (isAdmin && enabled.includes(entry.path)) {
               return { ...entry, path: entry.path.replace('modadmin/', 'mods/') }
             }
@@ -199,7 +199,7 @@ export function startLaunch(
     url: `https://earthkingdoms-mc.fr/launcher/files/?instance=${filesInstance}`,
     authenticator,
     timeout:       300000,
-    path:          basePath,         // dossier BASE — mc-java-core y crée /instances/, /versions/, /libraries/…
+    path:          basePath,         // dossier BASE - mc-java-core y crée /instances/, /versions/, /libraries/…
     instance:      instanceName,
     version:       '1.20.1',
     detached:      true,
@@ -218,7 +218,7 @@ export function startLaunch(
     ignored:   [
       // Forge génère ce fichier lui-même, le serveur renvoie une 404 HTML
       'config/fml.toml',
-      // Fichiers/dossiers générés par le joueur — ne jamais supprimer
+      // Fichiers/dossiers générés par le joueur - ne jamais supprimer
       'options.txt',
       'optionsof.txt',
       'saves',
@@ -303,7 +303,7 @@ export function startLaunch(
     try { fs.writeFileSync(path.join(app.getPath('appData'), '.ek_auth'), ekAuth, 'utf8') } catch { /* ignore */ }
     try { fs.mkdirSync(instanceDir, { recursive: true }); fs.writeFileSync(path.join(instanceDir, '.ek_auth'), ekAuth, 'utf8') } catch { /* ignore */ }
 
-    // Fire-and-forget — les events gèrent tout
+    // Fire-and-forget - les events gèrent tout
     launch.Launch(options).catch((err: any) => {
       finish(() => onError(formatError(err)))
     })

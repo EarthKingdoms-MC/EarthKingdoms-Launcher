@@ -120,7 +120,7 @@ export default function Footer({ ram }: Props) {
       <span className="footer__sep">·</span>
       <span className="footer__item">Java <span className="footer__value font-mc">17</span></span>
 
-      {/* Liens — centrés */}
+      {/* Liens - centrés */}
       <div className="footer__links">
         {GROUPS.map((group, gi) => (
           <span key={gi} className="footer__link-group">

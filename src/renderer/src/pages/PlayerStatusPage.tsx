@@ -146,7 +146,7 @@ export default function PlayerStatusPage() {
         <div className="player-status__content">
           {!dataAvailable && (
             <div className="player-status__unavailable">
-              Le serveur de jeu ne répond pas pour le moment — certaines infos ne sont pas disponibles.
+              Le serveur de jeu ne répond pas pour le moment - certaines infos ne sont pas disponibles.
             </div>
           )}
 

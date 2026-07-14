@@ -179,7 +179,7 @@
   box-shadow: inset 0 -1px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.12);
 }
 
-/* État DÉSACTIVÉ — gris MC */
+/* État DÉSACTIVÉ - gris MC */
 .mod-toggle--off {
   background: #5a5a5a;
   color: #c6c6c6;
@@ -188,7 +188,7 @@
   background: #696969;
 }
 
-/* État ACTIVÉ — vert MC */
+/* État ACTIVÉ - vert MC */
 .mod-toggle--on {
   background: #3a7d3a;
   color: #c6ffc6;

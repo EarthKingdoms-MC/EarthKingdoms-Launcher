@@ -14,7 +14,7 @@ import PlayerStatusPage from './pages/PlayerStatusPage'
 import { Account }   from './hooks/useSkin'
 import { playClick, playPlay, playClose, setSoundEnabled } from './utils/sounds'
 
-// ── Error Boundary — attrape les crashes React et affiche un message lisible ─
+// ── Error Boundary - attrape les crashes React et affiche un message lisible ─
 class ErrorBoundary extends Component<
   { children: ReactNode },
   { error: Error | null }
@@ -270,7 +270,7 @@ export default function App() {
   function handleSkinUploaded(textureDataUrl?: string) {
     setSkinRefreshKey(k => k + 1)
     if (textureDataUrl) {
-      // Calcul de la head directement depuis la texture locale — pas de round-trip serveur
+      // Calcul de la head directement depuis la texture locale - pas de round-trip serveur
       const img = new Image()
       img.onload = () => {
         const cvs = document.createElement('canvas')
@@ -321,7 +321,7 @@ export default function App() {
     )
   }
 
-  // Écran mise à jour macOS — informer + lien DMG, dismissable
+  // Écran mise à jour macOS - informer + lien DMG, dismissable
   if (macUpdateInfo) {
     return (
       <div style={{
@@ -374,7 +374,7 @@ export default function App() {
           background: 'rgba(13,13,24,0.97)',
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         }}>
-          {/* Bouton retour — position fixe haut gauche, z-index élevé */}
+          {/* Bouton retour - position fixe haut gauche, z-index élevé */}
           <button
             className="btn-secondary"
             data-sound="close"

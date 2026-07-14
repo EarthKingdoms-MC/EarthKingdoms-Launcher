@@ -1,6 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=VT323&display=swap');
 
-/* VT323 — pixel font, signale Minecraft sur les données techniques */
+/* VT323 - pixel font, signale Minecraft sur les données techniques */
 .font-mc { font-family: 'VT323', monospace; }
 
 /* ── Design Tokens ─────────────────────────────────── */
@@ -58,7 +58,7 @@ body {
   height: 100%;
 }
 
-/* ── Bouton Play — PREMIUM ──────────────────────────── */
+/* ── Bouton Play - PREMIUM ──────────────────────────── */
 .btn-play {
   position: relative;
   overflow: hidden;
@@ -164,7 +164,7 @@ body {
   box-shadow: 0 0 8px var(--orange-glow);
 }
 
-/* Barre indéterminée — animation scanning quand on n'a pas de % exact */
+/* Barre indéterminée - animation scanning quand on n'a pas de % exact */
 @keyframes pb-scan {
   0%   { transform: translateX(-100%); }
   100% { transform: translateX(400%); }

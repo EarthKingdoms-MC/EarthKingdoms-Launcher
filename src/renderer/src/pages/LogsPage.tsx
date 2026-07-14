@@ -8,8 +8,8 @@ interface LogEntry {
 }
 
 const CRASH_PATTERNS: { re: RegExp; msg: string }[] = [
-  { re: /OutOfMemoryError/i,                                    msg: 'Mémoire insuffisante (OutOfMemoryError) — augmente la RAM dans Paramètres.' },
-  { re: /invalid session/i,                                     msg: 'Session invalide — reconnecte-toi dans le launcher.' },
+  { re: /OutOfMemoryError/i,                                    msg: 'Mémoire insuffisante (OutOfMemoryError) - augmente la RAM dans Paramètres.' },
+  { re: /invalid session/i,                                     msg: 'Session invalide - reconnecte-toi dans le launcher.' },
   { re: /Terminating due to java\.lang/i,                       msg: 'Crash JVM fatal détecté.' },
   { re: /EXCEPTION_ACCESS_VIOLATION/i,                          msg: 'Crash mémoire natif (ACCESS_VIOLATION).' },
   { re: /A fatal error has been detected by the Java Runtime/i, msg: 'Erreur fatale JVM (hs_err).' },
@@ -42,7 +42,7 @@ function parseLine(raw: string): LogEntry {
 
 export default function LogsPage() {
   const [logs,          setLogs]          = useState<LogEntry[]>([
-    { time: now(), level: 'info', msg: 'Launcher prêt — en attente de lancement.' }
+    { time: now(), level: 'info', msg: 'Launcher prêt - en attente de lancement.' }
   ])
   const [autoScroll,    setAutoScroll]    = useState(true)
   const [crash,         setCrash]         = useState<string | null>(null)

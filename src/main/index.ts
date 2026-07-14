@@ -9,7 +9,7 @@ import { request as httpsRequest } from 'https'
 import { store }   from './store'
 import { login, logout, getAccount, getActiveAccount, getAccounts, switchAccount, removeAccount, getLauncherUA } from './auth'
 
-/** net.fetch avec User-Agent launcher — permet le bypass Cloudflare bot protection */
+/** net.fetch avec User-Agent launcher - permet le bypass Cloudflare bot protection */
 function ekFetch(url: string, init?: Parameters<typeof net.fetch>[1]): ReturnType<typeof net.fetch> {
   const headers = new Headers(init?.headers)
   headers.set('User-Agent', getLauncherUA())
@@ -49,7 +49,7 @@ function wlog(msg: string): void {
   try { appendFileSync(launcherLogFile, `[${ts}] ${msg}\n`, 'utf-8') } catch { /* silencieux */ }
 }
 
-// Buffer des logs MC — conservés entre navigations, effacés à chaque nouveau lancement
+// Buffer des logs MC - conservés entre navigations, effacés à chaque nouveau lancement
 const logBuffer: string[] = []
 const LOG_BUFFER_MAX = 2000
 
@@ -81,7 +81,7 @@ function createWindow(): void {
 
 app.whenReady().then(() => {
   initLauncherLog()
-  wlog(`Launcher démarré — v${app.getVersion()}`)
+  wlog(`Launcher démarré - v${app.getVersion()}`)
 
   createWindow()
   app.on('activate', () => {
@@ -95,7 +95,7 @@ app.whenReady().then(() => {
       mainWindow?.webContents.send('update:progress', Math.round(p.percent))
     })
     autoUpdater.on('update-downloaded',  (info) => {
-      wlog(`Mise à jour téléchargée : ${(info as any)?.version ?? '?'} — redémarrage…`)
+      wlog(`Mise à jour téléchargée : ${(info as any)?.version ?? '?'} - redémarrage…`)
       stopLaunch()
       setTimeout(() => autoUpdater.quitAndInstall(true, true), 500)
     })
@@ -126,8 +126,8 @@ ipcMain.handle('store:set', (_e, key: string, value: unknown) => {
 // ── Authentification EarthKingdoms ───────────────────────────────────────────
 ipcMain.handle('auth:login', async (_e, username: string, password: string) => {
   const result = await login(username, password)
-  if ((result as any)?.ok) wlog(`Auth: connexion réussie — ${username}`)
-  else wlog(`Auth: échec connexion — ${username}`)
+  if ((result as any)?.ok) wlog(`Auth: connexion réussie - ${username}`)
+  else wlog(`Auth: échec connexion - ${username}`)
   return result
 })
 
@@ -276,7 +276,7 @@ ipcMain.handle('skin:historyRestore', async (_e, historyId: string) => {
       method: 'POST',
       headers: { Authorization: `Bearer ${account.token}` },
     })
-    wlog(`SkinHistory: restore ${historyId} — HTTP ${res.status}`)
+    wlog(`SkinHistory: restore ${historyId} - HTTP ${res.status}`)
     if (res.ok) return { ok: true }
     let msg = `Erreur serveur (${res.status})`
     try { msg = (await res.json() as { error?: string }).error ?? msg } catch {}
@@ -306,7 +306,7 @@ ipcMain.handle('skin:upload', async (_e, fileData: number[]) => {
       Buffer.from(`\r\n--${boundary}--\r\n`),
     ])
 
-    // Utilise https natif Node.js — évite les bugs de net.fetch avec Buffer + headers custom
+    // Utilise https natif Node.js - évite les bugs de net.fetch avec Buffer + headers custom
     const { status, text } = await new Promise<{ status: number; text: string }>((resolve, reject) => {
       const req = httpsRequest(
         'https://earthkingdoms-mc.fr/api/skin/upload',
@@ -330,17 +330,17 @@ ipcMain.handle('skin:upload', async (_e, fileData: number[]) => {
       req.end()
     })
 
-    wlog(`Skin: réponse serveur — HTTP ${status} — ${text.slice(0, 200)}`)
+    wlog(`Skin: réponse serveur - HTTP ${status} - ${text.slice(0, 200)}`)
     if (status >= 200 && status < 300) {
-      wlog(`Skin: upload réussi — ${account.username}`)
+      wlog(`Skin: upload réussi - ${account.username}`)
       return { ok: true }
     }
     let msg = `Erreur serveur (${status})`
     try { msg = (JSON.parse(text) as { error?: string }).error ?? msg } catch { /* silencieux */ }
-    wlog(`Skin: upload échoué — ${msg}`)
+    wlog(`Skin: upload échoué - ${msg}`)
     return { ok: false, error: msg }
   } catch (e) {
-    wlog(`Skin: erreur réseau — ${e}`)
+    wlog(`Skin: erreur réseau - ${e}`)
     return { ok: false, error: 'Erreur réseau.' }
   }
 })
@@ -353,7 +353,7 @@ ipcMain.handle('launch:start', async (_e, dev?: boolean) => {
   const ram      = (store.get('ram')      as number)        || 4
   const javaPath = (store.get('javaPath') as string | null) || null
 
-  wlog(`Launch: démarrage — user=${account.username} ram=${ram}Go java=${javaPath ?? 'embarqué'}${dev ? ' [DEV]' : ''}`)
+  wlog(`Launch: démarrage - user=${account.username} ram=${ram}Go java=${javaPath ?? 'embarqué'}${dev ? ' [DEV]' : ''}`)
   logBuffer.length = 0  // vide le buffer au nouveau lancement
   launchStartTime = Date.now()
   let gameStarted = false
@@ -384,7 +384,7 @@ ipcMain.handle('launch:start', async (_e, dev?: boolean) => {
       const h        = Math.floor(totalMin / 60)
       const m        = totalMin % 60
       const timeStr  = h > 0 ? `${h}h ${m}min` : `${totalMin}min`
-      wlog(`Launch: fermé — code=${code} — durée=${timeStr}`)
+      wlog(`Launch: fermé - code=${code} - durée=${timeStr}`)
       mainWindow?.webContents.send('launch:close', { code })
       mainWindow?.webContents.send('launch:state', { running: false })
       if (mainWindow?.isMinimized()) { mainWindow.restore(); mainWindow.focus() }
@@ -397,7 +397,7 @@ ipcMain.handle('launch:start', async (_e, dev?: boolean) => {
     },
 
     (message) => {
-      wlog(`Launch: erreur — ${message}`)
+      wlog(`Launch: erreur - ${message}`)
       mainWindow?.webContents.send('launch:error', { message })
       mainWindow?.webContents.send('launch:state', { running: false })
       if (mainWindow?.isMinimized()) { mainWindow.restore(); mainWindow.focus() }
@@ -594,7 +594,7 @@ function isNewerVersion(latest: string, current: string): boolean {
 ipcMain.handle('update:check', async () => {
   if (!app.isPackaged) return { available: false }
 
-  // macOS — auto-update désactivé (pas de signature Apple)
+  // macOS - auto-update désactivé (pas de signature Apple)
   // On vérifie quand même via l'API GitHub pour informer l'utilisateur
   if (process.platform === 'darwin') {
     try {
@@ -622,7 +622,7 @@ ipcMain.handle('update:check', async () => {
     }
   }
 
-  // Windows + Linux — electron-updater silencieux
+  // Windows + Linux - electron-updater silencieux
   return new Promise<{ available: boolean }>((resolve) => {
     let done = false
     const finish = (available: boolean) => {

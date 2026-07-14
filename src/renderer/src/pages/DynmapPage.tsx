@@ -77,7 +77,7 @@ export default function DynmapPage() {
         </div>
       )}
 
-      {/* webview Electron — plein écran */}
+      {/* webview Electron - plein écran */}
       <webview
         ref={webviewRef}
         src={DYNMAP_URL}

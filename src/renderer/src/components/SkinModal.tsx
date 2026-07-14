@@ -17,7 +17,7 @@ async function validateSkin(file: File): Promise<string | null> {
     return 'Le fichier doit être un PNG.'
   }
   if (file.size > 2 * 1024 * 1024) {
-    return `Fichier trop lourd (${(file.size / 1024).toFixed(0)} Ko) — max 2 Mo.`
+    return `Fichier trop lourd (${(file.size / 1024).toFixed(0)} Ko) - max 2 Mo.`
   }
   return new Promise((resolve) => {
     const img = new Image()
@@ -25,7 +25,7 @@ async function validateSkin(file: File): Promise<string | null> {
     img.onload = () => {
       URL.revokeObjectURL(url)
       if (img.width !== 64 || img.height !== 64) {
-        resolve(`Dimensions invalides (${img.width}×${img.height}) — le skin doit être 64×64 px.`)
+        resolve(`Dimensions invalides (${img.width}×${img.height}) - le skin doit être 64×64 px.`)
       } else {
         resolve(null)
       }
@@ -78,7 +78,7 @@ export default function SkinModal({ username, skinRefreshKey, onSkinUploaded, on
 
   // refreshKey local : incrémenté après upload ou restore pour recharger aperçu + historique
   const [localRefreshKey,  setLocalRefreshKey]  = useState(skinRefreshKey ?? 0)
-  // Texture directement issue du fichier uploadé — évite le round-trip réseau pour l'aperçu
+  // Texture directement issue du fichier uploadé - évite le round-trip réseau pour l'aperçu
   const [uploadedTexture,  setUploadedTexture]  = useState<string | null>(null)
 
   const headUrl    = useSkinHead(username, localRefreshKey)
@@ -138,7 +138,7 @@ export default function SkinModal({ username, skinRefreshKey, onSkinUploaded, on
       const result = await window.api.skinUpload(data)
       if (result.ok) {
         setUploadState('success')
-        // Lecture locale immédiate — affichage sans attendre le fetch réseau
+        // Lecture locale immédiate - affichage sans attendre le fetch réseau
         const reader = new FileReader()
         reader.onload = (e) => {
           const dataUrl = e.target?.result as string | undefined
@@ -301,7 +301,7 @@ export default function SkinModal({ username, skinRefreshKey, onSkinUploaded, on
                         </span>
                       )}
                       {uploadState === 'ready' && (
-                        <span className="skinm__upload-ok">✓ Fichier valide — 64×64 px</span>
+                        <span className="skinm__upload-ok">✓ Fichier valide - 64×64 px</span>
                       )}
                     </div>
                     <button className="skinm__upload-reset" onClick={handleReset} title="Changer de fichier">✕</button>

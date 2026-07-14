@@ -133,16 +133,16 @@ export default function HomePage({ canPlayDev }: Props) {
             <span className="home__status-divider" />
             <span className="home__ping-group">
               <img src="./icons/ping-low.svg" alt="" className="home__ping" />
-              <span className="home__ping-label">{ping > 0 ? `${ping} ms` : '—'}</span>
+              <span className="home__ping-label">{ping > 0 ? `${ping} ms` : '-'}</span>
             </span>
           </div>
 
           {status.online && (
-            <p className="home__motd">» <em>EarthKingdoms</em> — Rejoignez la lutte pour la suprématie mondiale.</p>
+            <p className="home__motd">» <em>EarthKingdoms</em> - Rejoignez la lutte pour la suprématie mondiale.</p>
           )}
 
           <div className="home__hero">
-            <span className="home__hero-eyebrow">Saison IV — Âge des Nations</span>
+            <span className="home__hero-eyebrow">Saison IV - Âge des Nations</span>
             <h1 className="home__hero-title">Bâtissez<br /><span className="home__hero-accent">Votre Empire</span></h1>
           </div>
 
@@ -172,7 +172,7 @@ export default function HomePage({ canPlayDev }: Props) {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                   <polygon points="5 3 19 12 5 21 5 3"/>
                 </svg>
-                JOUER — DEV
+                JOUER - DEV
               </button>
               )}
             </div>

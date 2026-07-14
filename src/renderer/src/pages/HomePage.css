@@ -168,7 +168,7 @@
   max-width: 400px;
 }
 
-/* Bouton DEV — même style que btn-play mais plus petit et en violet, pour
+/* Bouton DEV - même style que btn-play mais plus petit et en violet, pour
    qu'il ne soit jamais confondu avec le bouton de jeu principal. */
 .btn-play--dev {
   height: 40px;
@@ -266,7 +266,7 @@
   gap: 3px;
 }
 
-/* ── News card — accent left border ────────────────── */
+/* ── News card - accent left border ────────────────── */
 .news-card {
   padding: 12px 13px;
   border-left: 2px solid rgba(255,240,220,0.08);

@@ -163,7 +163,7 @@ export function useSkinHead(username: string, refreshKey?: number): string | nul
         }
         img.src = dataUrl
       } catch {
-        // Skin indisponible — fallback icône générique affiché
+        // Skin indisponible - fallback icône générique affiché
       }
     }
 

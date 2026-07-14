@@ -104,7 +104,7 @@ export default function ModsPage() {
           )}
         </div>
         <p className="mods__subtitle">
-          Activés au prochain lancement — le modpack principal n'est pas modifiable ici.
+          Activés au prochain lancement - le modpack principal n'est pas modifiable ici.
         </p>
       </div>
 
@@ -123,7 +123,7 @@ export default function ModsPage() {
             const on   = enabled.has(mod.path)
             const desc = MOD_DESCS[key] ?? (isAdmin
               ? 'Mod réservé aux administrateurs.'
-              : 'Mod optionnel — cliquez pour activer ou désactiver.')
+              : 'Mod optionnel - cliquez pour activer ou désactiver.')
             return (
               <div key={mod.path} className={`mod-row ${on ? 'mod-row--on' : ''} ${isAdmin ? 'mod-row--admin' : ''}`}>
                 <div className="mod-row__icon">

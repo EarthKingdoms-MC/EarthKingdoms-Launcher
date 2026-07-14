@@ -3,7 +3,7 @@ import path from 'path'
 import * as nbt from 'prismarine-nbt'
 import type { NBT } from 'prismarine-nbt'
 
-// Serveur de test — même hôte que la prod, port dédié (voir server.properties
+// Serveur de test - même hôte que la prod, port dédié (voir server.properties
 // du serveur dev : server-port=39000). Le trafic passe par TCPShield/Cloudflare
 // comme la prod, donc on utilise le même domaine public.
 export const DEV_SERVER_NAME    = 'EarthKingdoms DEV'
@@ -61,6 +61,6 @@ export function ensureDevServerEntry(instanceDir: string): void {
 
     fs.writeFileSync(filePath, nbt.writeUncompressed(updated, 'big'))
   } catch {
-    // Non bloquant — le joueur pourra toujours ajouter le serveur manuellement.
+    // Non bloquant - le joueur pourra toujours ajouter le serveur manuellement.
   }
 }

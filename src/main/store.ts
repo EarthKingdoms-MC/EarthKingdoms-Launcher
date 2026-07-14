@@ -28,7 +28,7 @@ interface Schema {
   resolutionWidth:        number
   resolutionHeight:       number
   javaPath:               string | null
-  account:                Account | null        // legacy — conservé pour migration
+  account:                Account | null        // legacy - conservé pour migration
   accounts:               Account[]
   activeAccountId:        string | null
   soundEnabled:           boolean
