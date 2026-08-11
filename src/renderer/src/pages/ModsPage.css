@@ -249,3 +249,97 @@
   display: flex;
   gap: 8px;
 }
+
+/* ── Palier de performance ────────────────────────────────────────────────
+   Indique à quel niveau un mod s'active : Optimisation dès le palier Faible,
+   Confort au palier Moyen, Gourmand seulement au palier Élevé. */
+.mod-row__tier {
+  font-family: 'VT323', monospace;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  border-radius: 3px;
+  padding: 1px 6px;
+  flex-shrink: 0;
+}
+.mod-row__tier--low {
+  color: #2ECC71;
+  background: rgba(46,204,113,0.12);
+  border: 1px solid rgba(46,204,113,0.32);
+}
+.mod-row__tier--medium {
+  color: #3BC9DB;
+  background: rgba(59,201,219,0.12);
+  border: 1px solid rgba(59,201,219,0.32);
+}
+.mod-row__tier--high {
+  color: #EC8200;
+  background: rgba(236,130,0,0.12);
+  border: 1px solid rgba(236,130,0,0.32);
+}
+
+/* Rappel du profil actif sous le titre de la page */
+.mods__profile {
+  margin-top: 6px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+.mods__profile strong { color: var(--text-secondary); }
+
+.mods__notice {
+  margin-top: 8px;
+  padding: 7px 11px;
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--success);
+  background: rgba(46,204,113,0.08);
+  border: 1px solid rgba(46,204,113,0.28);
+  border-radius: 4px;
+}
+
+/* ── Sélecteur de profil ──────────────────────────────────────────────────
+   Permet de composer une liste de mods par profil sans repasser par les
+   paramètres. Les pastilles sont celles de globals.css, partagées avec
+   l'écran de configuration. */
+.mods__profiles {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.mods__profiles-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.mods__profiles-list {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.mods__profiles-add { border-style: dashed; }
+
+.mods__profiles-input {
+  min-width: 140px;
+  max-width: 200px;
+  padding: 5px 11px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-bright);
+  border-radius: 20px;
+  color: var(--text-secondary);
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  outline: none;
+  transition: border-color 150ms;
+}
+.mods__profiles-input:focus { border-color: var(--orange); }

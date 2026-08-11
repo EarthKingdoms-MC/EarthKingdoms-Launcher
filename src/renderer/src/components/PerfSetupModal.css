@@ -1,0 +1,188 @@
+/* Proposition de palier au premier démarrage - plein écran, par-dessus tout. */
+
+.perf-setup {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(13, 13, 24, 0.97);
+}
+
+.perf-setup__card {
+  width: 100%;
+  max-width: 720px;
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 28px 30px 24px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-bright);
+  border-radius: var(--radius-lg);
+  position: relative;
+}
+.perf-setup__card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: linear-gradient(90deg, var(--orange), #7C5CFC, #3BC9DB);
+}
+
+.perf-setup__head { margin-bottom: 20px; }
+
+.perf-setup__label {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--orange);
+  margin-bottom: 8px;
+}
+
+.perf-setup__title {
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.perf-setup__intro {
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--text-secondary);
+  max-width: 560px;
+}
+
+.perf-setup__loading {
+  padding: 40px 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ── Matériel détecté ── */
+.perf-setup__hw {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 18px;
+}
+@media (max-width: 560px) {
+  .perf-setup__hw { grid-template-columns: 1fr; }
+}
+
+.perf-setup__hw-item {
+  padding: 10px 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-left: 2px solid rgba(59, 201, 219, 0.4);
+  border-radius: 4px;
+  min-width: 0;
+}
+
+.perf-setup__hw-key {
+  display: block;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 3px;
+}
+
+.perf-setup__hw-val {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Cartes de palier ── */
+.perf-setup__levels {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 20px;
+}
+@media (max-width: 560px) {
+  .perf-setup__levels { grid-template-columns: 1fr; }
+}
+
+.perf-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+  /* Un <button> n'hérite pas de la police du document - à déclarer, comme
+     partout ailleurs dans l'interface. */
+  font-family: 'Rajdhani', sans-serif;
+  padding: 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: border-color 160ms, background 160ms, transform 160ms;
+}
+.perf-card:hover {
+  border-color: var(--border-bright);
+  transform: translateY(-1px);
+}
+.perf-card--picked {
+  border-color: var(--orange);
+  background: rgba(236, 130, 0, 0.08);
+}
+
+.perf-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.perf-card__name {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.perf-card__rec {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--success);
+  background: rgba(46, 204, 113, 0.14);
+  border-radius: 3px;
+  padding: 2px 5px;
+  white-space: nowrap;
+}
+
+.perf-card__desc {
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.perf-card__meta {
+  margin-top: auto;
+  padding-top: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.perf-card--picked .perf-card__meta { color: var(--orange); }
+
+.perf-setup__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}

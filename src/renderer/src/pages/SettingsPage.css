@@ -347,3 +347,147 @@
 .settings__hint--rec {
   color: var(--text-muted);
 }
+
+/* ── Palier de performance ──────────────────────────────────────────────
+   Section sortie de la grille deux colonnes : les trois cartes ont besoin de
+   toute la largeur pour rester comparables d'un coup d'œil. */
+.settings__section--full {
+  margin-bottom: 22px;
+}
+
+.tiers {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 5px;
+}
+@media (max-width: 720px) {
+  .tiers { grid-template-columns: 1fr; }
+}
+
+.tier {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+  /* Les <button> n'héritent pas de la police du document : sans cette ligne la
+     carte s'affiche dans la police système, seule de toute l'interface.
+     Même déclaration explicite que .btn-secondary et .settings__res-btn. */
+  font-family: 'Rajdhani', sans-serif;
+  padding: 13px 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-left: 2px solid rgba(255, 240, 220, 0.08);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: border-color 160ms, background 160ms;
+}
+.tier:hover { border-color: var(--border-bright); }
+.tier--active {
+  border-color: var(--orange);
+  border-left-color: var(--orange);
+  background: rgba(236, 130, 0, 0.08);
+}
+
+.tier__name {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text);
+}
+.tier--active .tier__name { color: var(--orange); }
+
+.tier__desc {
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.tier__meta {
+  margin-top: auto;
+  padding-top: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: var(--text-secondary);
+  opacity: 0.75;
+}
+.tier--active .tier__meta { color: var(--orange); opacity: 1; }
+
+/* ── Profils personnalisés ── */
+.tiers__customs {
+  padding: 11px 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  margin-bottom: 5px;
+}
+
+.tiers__customs-label {
+  display: block;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.tiers__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tiers__actions { align-items: flex-start; gap: 12px; }
+
+.tiers__buttons {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* ── Réglages graphiques éditables ──────────────────────────────────────
+   Deux colonnes de lignes .settings__row, pour ne pas allonger la page en une
+   colonne interminable. Chaque ligne reste une ligne de réglage standard. */
+.gfx {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+}
+@media (max-width: 860px) {
+  .gfx { grid-template-columns: 1fr; }
+}
+
+.gfx__row { margin-bottom: 0; }
+
+/* Une valeur qui s'écarte du palier est signalée sur le bord de la ligne,
+   comme le focus des autres lignes de réglage. */
+.gfx__row--modified { border-left-color: var(--orange); }
+
+.gfx__value {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--orange);
+  white-space: nowrap;
+}
+
+.gfx__dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-left: 6px;
+  vertical-align: middle;
+  border-radius: 50%;
+  background: var(--orange);
+}
+
+/* Le libellé ne doit pas se couper en deux lignes quand la description
+   occupe le reste de la ligne - même garde que les autres boutons d'action. */
+.gfx__apply {
+  flex-shrink: 0;
+  white-space: nowrap;
+}

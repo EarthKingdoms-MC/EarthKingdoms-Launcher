@@ -80,10 +80,28 @@ contextBridge.exposeInMainWorld('api', {
   bugCaptureScreen: () => ipcRenderer.invoke('bug:captureScreen'),
 
   // Profils de lancement
-  profilesList:      ()                    => ipcRenderer.invoke('profiles:list'),
-  profilesSave:      (profile: unknown)    => ipcRenderer.invoke('profiles:save', profile),
-  profilesDelete:    (id: string)          => ipcRenderer.invoke('profiles:delete', id),
-  profilesSetActive: (id: string)          => ipcRenderer.invoke('profiles:setActive', id),
+  profilesList:      ()                                => ipcRenderer.invoke('profiles:list'),
+  profilesUpdate:    (patch: unknown)                  => ipcRenderer.invoke('profiles:update', patch),
+  profilesCreate:    (name: string, sourceId: string)  => ipcRenderer.invoke('profiles:create', name, sourceId),
+  profilesRename:    (id: string, name: string)        => ipcRenderer.invoke('profiles:rename', id, name),
+  profilesDelete:    (id: string)                      => ipcRenderer.invoke('profiles:delete', id),
+  profilesReset:     (id: string, what: string)        => ipcRenderer.invoke('profiles:reset', id, what),
+  profilesSetActive: (id: string)                      => ipcRenderer.invoke('profiles:setActive', id),
+
+  // Paliers de performance
+  perfHardware:          ()                                => ipcRenderer.invoke('perf:hardware'),
+  perfNeedsSetup:        ()                                => ipcRenderer.invoke('perf:needsSetup'),
+  perfChooseLevel:       (level: string)                   => ipcRenderer.invoke('perf:chooseLevel', level),
+  perfDismissSetup:      ()                                => ipcRenderer.invoke('perf:dismissSetup'),
+  perfLevels:            ()                                => ipcRenderer.invoke('perf:levels'),
+  perfModTiers:          ()                                => ipcRenderer.invoke('perf:modTiers'),
+  perfActiveGameOptions: ()                                => ipcRenderer.invoke('perf:activeGameOptions'),
+  perfSetGameOptions:    (values: Record<string, string>)  => ipcRenderer.invoke('perf:setGameOptions', values),
+  perfApplyGameOptions:  ()                                => ipcRenderer.invoke('perf:applyGameOptions'),
+
+  // Garde-fou de fermeture (modifications non sauvegardées)
+  unsavedGuard:  (on: boolean)      => ipcRenderer.send('app:unsaved-guard', on),
+  closeResponse: (doClose: boolean) => ipcRenderer.send('app:close-response', doClose),
 
   // Listeners main → renderer (on/off correctement appairés pour éviter les fuites)
   on: (channel: string, cb: (...args: unknown[]) => void) => {

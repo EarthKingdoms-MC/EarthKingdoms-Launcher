@@ -1,8 +1,9 @@
-import { app } from 'electron'
+import { app, screen } from 'electron'
 import path    from 'path'
 import fs      from 'fs'
 import { store } from './store'
-import type { Account } from './store'
+import type { Account, LaunchProfile } from './store'
+import { gcArgs, applyGameOptions, needsInitialGameOptions } from './perfProfiles'
 import { getActiveAccount, getLauncherUA } from './auth'
 import { ensureDevServerEntry } from './devServer'
 
@@ -103,8 +104,7 @@ export function stopLaunch(): void {
 
 export function startLaunch(
   account:    Account,
-  ram:        number,
-  javaPath:   string | null,
+  profile:    LaunchProfile,
   onProgress: (data: LaunchProgressEvent) => void,
   onLog:      (line: string) => void,
   onClose:    (code: number | null) => void,
@@ -113,6 +113,8 @@ export function startLaunch(
 ): { ok: boolean; error?: string } {
 
   if (isRunning()) return { ok: false, error: 'Minecraft est déjà en cours d\'exécution.' }
+
+  const { ram, javaPath, perfLevel } = profile
 
   const userData     = app.getPath('userData')
   const basePath     = path.join(userData, 'EarthKingdoms')        // racine mc-java-core
@@ -140,32 +142,16 @@ export function startLaunch(
   const maxRamMB = Math.round(ram * 1024)
   const minRamMB = Math.max(512, Math.round((ram - 0.5) * 1024))
 
-  // JVM args : G1GC + Java 17 add-opens (obligatoire Forge 1.20.1)
+  // JVM args : GC réglé par le palier de performance (voir perfProfiles.gcArgs)
+  // + Java 17 add-opens (obligatoire Forge 1.20.1)
   const jvmArgs = [
     // Token EarthKingdoms (auth serveur)
     `-Dek.launcher.token=${account.token}`,
     `-Dek.launcher.username=${account.username}`,
     '-Dearthkingdoms.api.url=https://earthkingdoms-mc.fr/api',
 
-    // G1GC (Aikar's flags adaptés)
-    '-XX:+UseG1GC',
-    '-XX:+ParallelRefProcEnabled',
-    '-XX:MaxGCPauseMillis=200',
-    '-XX:+UnlockExperimentalVMOptions',
-    '-XX:+DisableExplicitGC',
-    '-XX:+AlwaysPreTouch',
-    '-XX:G1NewSizePercent=30',
-    '-XX:G1MaxNewSizePercent=40',
-    '-XX:G1HeapRegionSize=8M',
-    '-XX:G1ReservePercent=20',
-    '-XX:G1HeapWastePercent=5',
-    '-XX:G1MixedGCCountTarget=4',
-    '-XX:InitiatingHeapOccupancyPercent=15',
-    '-XX:G1MixedGCLiveThresholdPercent=90',
-    '-XX:G1RSetUpdatingPauseTimePercent=5',
-    '-XX:SurvivorRatio=32',
-    '-XX:+PerfDisableSharedMem',
-    '-XX:MaxTenuringThreshold=1',
+    // G1GC (flags d'Aikar, ajustés selon le palier et la taille du tas)
+    ...gcArgs(perfLevel, maxRamMB),
 
     // Crash dumps
     '-XX:+HeapDumpOnOutOfMemoryError',
@@ -185,10 +171,12 @@ export function startLaunch(
     '--add-opens', 'java.desktop/java.awt.font=ALL-UNNAMED',
   ]
 
-  const storedW   = store.get('resolutionWidth')  as number
-  const storedH   = store.get('resolutionHeight') as number
-  const resWidth  = (storedW  && storedW  !== 1920) ? storedW  : 854
-  const resHeight = (storedH  && storedH  !== 1080) ? storedH  : 480
+  // Résolution de la fenêtre de jeu, issue du profil actif. Bornée à l'écran :
+  // demander plus grand que le bureau ouvrirait une fenêtre partiellement hors
+  // champ, sans aucun gain visuel.
+  const { width: screenW, height: screenH } = screen.getPrimaryDisplay().workAreaSize
+  const resWidth  = Math.min(profile.resW || 854, screenW)
+  const resHeight = Math.min(profile.resH || 480, screenH)
 
   // Instance de fichiers côté serveur - le modpack dev diffère substantiellement
   // de la prod (ekcore fusionné, outils de worldgen/debug en plus), d'où une
@@ -237,6 +225,11 @@ export function startLaunch(
     },
     screen: { width: resWidth, height: resHeight },
   }
+
+  // Première installation : aucun options.txt n'existe encore, on y écrit les
+  // réglages graphiques du palier. Sur une instance déjà jouée on n'y touche
+  // pas ici - c'est un geste explicite depuis les paramètres (perf:applyGameOptions).
+  if (needsInitialGameOptions(instanceDir)) applyGameOptions(instanceDir, perfLevel, profile.gameOptions)
 
   try {
     const launch = new MCCore.Launch()

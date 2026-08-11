@@ -6,7 +6,13 @@ app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required')
 import { appendFileSync, mkdirSync, readdirSync, statSync, unlinkSync, rmSync, existsSync } from 'fs'
 import { totalmem } from 'os'
 import { request as httpsRequest } from 'https'
-import { store }   from './store'
+import { randomUUID } from 'crypto'
+import { store, migrateProfiles, getActiveProfile, BUILTIN_PROFILE_IDS } from './store'
+import {
+  modsForLevel, modTier, applyGameOptions, gameOptionsFor, EDITABLE_GAME_KEYS,
+  LEVEL_LABELS, LEVEL_DESCS, PERF_LEVELS, isPerfLevel, recommendedRam,
+} from './perfProfiles'
+import { detectHardware } from './hardware'
 import { login, logout, getAccount, getActiveAccount, getAccounts, switchAccount, removeAccount, getLauncherUA } from './auth'
 
 /** net.fetch avec User-Agent launcher - permet le bypass Cloudflare bot protection */
@@ -21,6 +27,21 @@ import type { Account, LaunchProfile } from './store'
 
 let mainWindow: BrowserWindow | null = null
 let launchStartTime = 0
+
+// ── Garde-fou « modifications non sauvegardées » ─────────────────────────────
+//
+// Le renderer lève ce drapeau quand un écran a des réglages en cours de
+// modification. Tant qu'il est baissé - le cas normal - la fermeture n'est pas
+// interceptée du tout : aucun risque d'empêcher la fenêtre de se fermer.
+let unsavedGuard   = false
+let allowWindowClose = false
+let closeTimer: ReturnType<typeof setTimeout> | null = null
+
+/** Autorise la prochaine fermeture sans poser de question (quit, mise à jour). */
+function allowClose(): void {
+  allowWindowClose = true
+  if (closeTimer) { clearTimeout(closeTimer); closeTimer = null }
+}
 
 // ── Logs launcher persistants ─────────────────────────────────────────────────
 let launcherLogFile: string | null = null
@@ -72,6 +93,24 @@ function createWindow(): void {
     }
   })
 
+  const win = mainWindow
+  allowWindowClose = false
+
+  win.on('close', (e) => {
+    if (allowWindowClose || !unsavedGuard) return
+    e.preventDefault()
+    win.webContents.send('app:before-close')
+
+    // Filet de sécurité : si le renderer ne répond jamais (page plantée, écran
+    // d'erreur), la fenêtre se ferme quand même au lieu de rester bloquée.
+    if (closeTimer) clearTimeout(closeTimer)
+    closeTimer = setTimeout(() => {
+      closeTimer = null
+      allowWindowClose = true
+      win.close()
+    }, 8000)
+  })
+
   if (process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
@@ -79,9 +118,30 @@ function createWindow(): void {
   }
 }
 
+ipcMain.on('app:unsaved-guard', (_e, on: boolean) => { unsavedGuard = on === true })
+
+ipcMain.on('app:close-response', (_e, doClose: boolean) => {
+  if (closeTimer) { clearTimeout(closeTimer); closeTimer = null }
+  if (doClose) {
+    allowWindowClose = true
+    mainWindow?.close()
+  }
+})
+
 app.whenReady().then(() => {
   initLauncherLog()
   wlog(`Launcher démarré - v${app.getVersion()}`)
+
+  // Complète les profils enregistrés avant l'arrivée des paliers de performance
+  // et garantit la présence des trois profils intégrés, puis répercute le profil
+  // actif sur les clés globales lues ailleurs (RAM, résolution, mods actifs).
+  migrateProfiles(Math.floor(totalmem() / 1024 / 1024 / 1024))
+  applyActiveProfile()
+
+  // Rafraîchit le catalogue en tâche de fond, puis réapplique le profil : un
+  // mod optionnel ajouté côté serveur entre dans le bon palier sans que le
+  // joueur ait à ouvrir l'onglet Mods.
+  fetchModCatalogue().then(list => { if (list.length > 0) applyActiveProfile() })
 
   createWindow()
   app.on('activate', () => {
@@ -97,6 +157,7 @@ app.whenReady().then(() => {
     autoUpdater.on('update-downloaded',  (info) => {
       wlog(`Mise à jour téléchargée : ${(info as any)?.version ?? '?'} - redémarrage…`)
       stopLaunch()
+      allowClose()
       setTimeout(() => autoUpdater.quitAndInstall(true, true), 500)
     })
   }
@@ -345,23 +406,285 @@ ipcMain.handle('skin:upload', async (_e, fileData: number[]) => {
   }
 })
 
+// ── Paliers de performance ────────────────────────────────────────────────────
+//
+// Le profil actif est la source de vérité (palier, RAM, résolution, Java,
+// sélection de mods). Les clés globales du store restent alimentées à partir de
+// lui : plusieurs endroits du launcher les lisent encore directement (Footer,
+// patch fetch de launcherCore, écran de paramètres).
+
+const INSTANCE_NAMES = ['EarthKingdoms', 'EarthKingdoms-dev']
+
+interface CatalogueEntry { url: string; size: number; hash: string; path: string }
+
+/**
+ * Récupère la liste des mods optionnels et la mémorise.
+ *
+ * Le catalogue est indispensable aux paliers : sans lui, on ne sait pas quels
+ * mods existent, donc pas lesquels activer. Il est donc rafraîchi au démarrage
+ * et avant chaque lancement, pas seulement à l'ouverture de l'onglet Mods.
+ */
+async function fetchModCatalogue(): Promise<CatalogueEntry[]> {
+  try {
+    const account = getActiveAccount()
+    const headers: Record<string, string> = {}
+    if (account?.token) headers['Authorization'] = `Bearer ${account.token}`
+
+    const res = await ekFetch('https://earthkingdoms-mc.fr/launcher/files/?instance=EarthKingdomsV4-beta', { headers })
+    if (!res.ok) return []
+    const data = await res.json() as CatalogueEntry[]
+
+    const optional = data.filter(f =>
+      f.path?.startsWith('modoptionnel/') ||
+      f.path?.startsWith('modadmin/')
+    )
+    if (optional.length > 0) store.set('knownOptionalMods', optional.map(f => f.path))
+    return optional
+  } catch {
+    // Hors ligne : le dernier catalogue connu reste en place.
+    return []
+  }
+}
+
+function instanceDir(name: string): string {
+  return join(app.getPath('userData'), 'EarthKingdoms', 'instances', name)
+}
+
+/**
+ * Liste de mods réellement activée pour un profil.
+ * Les mods admin ne dépendent jamais du palier : ce sont des outils de
+ * modération, ils restent pilotés à la main depuis l'onglet Mods.
+ */
+function effectiveMods(profile: LaunchProfile): string[] {
+  if (profile.mods !== null) return profile.mods
+
+  const catalogue = (store.get('knownOptionalMods')   as string[]) ?? []
+  const enabled   = (store.get('enabledOptionalMods') as string[]) ?? []
+
+  // Catalogue jamais récupéré (premier démarrage hors ligne) : on ne touche à
+  // rien plutôt que de vider la sélection du joueur.
+  if (catalogue.length === 0) return enabled
+
+  return modsForLevel(catalogue, profile.perfLevel, enabled.filter(m => m.startsWith('modadmin/')))
+}
+
+/** Répercute le profil actif sur les clés globales du store. */
+function applyActiveProfile(): LaunchProfile {
+  const profile = getActiveProfile()
+  store.set('ram',                 profile.ram)
+  store.set('resolutionWidth',     profile.resW)
+  store.set('resolutionHeight',    profile.resH)
+  store.set('javaPath',            profile.javaPath)
+  store.set('enabledOptionalMods', effectiveMods(profile))
+  return profile
+}
+
+/**
+ * Identifiant unique de profil.
+ *
+ * Surtout pas d'horodatage : deux profils créés dans la même milliseconde
+ * recevraient le même identifiant, et le second écraserait silencieusement le
+ * premier à l'enregistrement. Un UUID rend la collision impossible par
+ * construction, sans avoir à inspecter les profils déjà enregistrés.
+ */
+function newProfileId(): string {
+  return `profile-${randomUUID()}`
+}
+
+/**
+ * Nom libre pour un nouveau profil personnalisé : « Personnalisé », puis
+ * « Personnalisé 2 », etc. Un joueur qui bricole plusieurs fois se retrouve
+ * avec des profils distincts au lieu d'écraser le précédent.
+ */
+function nextCustomName(profiles: LaunchProfile[]): string {
+  const base = 'Personnalisé'
+  if (!profiles.some(p => p.name === base)) return base
+  let n = 2
+  while (profiles.some(p => p.name === `${base} ${n}`)) n++
+  return `${base} ${n}`
+}
+
+/**
+ * Applique une modification au profil actif.
+ *
+ * Les trois paliers intégrés sont des points de repère : ils ne changent
+ * jamais. Toucher un réglage alors que l'un d'eux est actif crée donc un
+ * profil personnalisé qui en dérive et devient actif - le palier d'origine
+ * reste disponible tel quel, et le joueur peut y revenir d'un clic.
+ */
+function updateActiveProfile(patch: Partial<LaunchProfile>): { profile: LaunchProfile; created: boolean } {
+  const active   = getActiveProfile()
+  const profiles = (store.get('launchProfiles') as LaunchProfile[]) ?? []
+
+  if (!active.builtin) {
+    const updated = { ...active, ...patch, id: active.id, builtin: false }
+    saveProfile(updated)
+    applyActiveProfile()
+    return { profile: updated, created: false }
+  }
+
+  const derived: LaunchProfile = {
+    ...active,
+    ...patch,
+    id:      newProfileId(),
+    name:    nextCustomName(profiles),
+    builtin: false,
+    // Le profil dérivé fige ce que le joueur avait sous les yeux : sans ça, sa
+    // liste de mods bougerait au prochain rafraîchissement du catalogue.
+    mods:    patch.mods ?? effectiveMods(active),
+  }
+  saveProfile(derived)
+  store.set('activeProfileId', derived.id)
+  applyActiveProfile()
+  wlog(`Profil « ${derived.name} » créé depuis le palier ${active.perfLevel}`)
+  return { profile: derived, created: true }
+}
+
+function saveProfile(profile: LaunchProfile): void {
+  const profiles = [...((store.get('launchProfiles') as LaunchProfile[]) ?? [])]
+  const idx = profiles.findIndex(p => p.id === profile.id)
+  if (idx >= 0) profiles[idx] = profile
+  else profiles.push(profile)
+  store.set('launchProfiles', profiles)
+}
+
+let cachedHardware: Awaited<ReturnType<typeof detectHardware>> | null = null
+
+ipcMain.handle('perf:hardware', async () => {
+  if (!cachedHardware) {
+    cachedHardware = await detectHardware()
+    wlog(`Matériel : ${cachedHardware.cpuCores} coeurs, ${cachedHardware.totalRamGB} Go, GPU ${cachedHardware.gpuName ?? 'inconnu'} (${cachedHardware.gpuKind}) → palier ${cachedHardware.recommended}`)
+  }
+  return cachedHardware
+})
+
+/** true tant que le joueur n'a pas répondu à la proposition de palier. */
+ipcMain.handle('perf:needsSetup', () => !(store.get('perfConfigured') as boolean))
+
+/** Le joueur accepte un palier : il devient le profil actif. */
+ipcMain.handle('perf:chooseLevel', (_e, level: string) => {
+  if (!isPerfLevel(level)) return { ok: false }
+  store.set('activeProfileId', `perf-${level}`)
+  store.set('perfConfigured', true)
+  const profile = applyActiveProfile()
+  wlog(`Palier choisi : ${level} (RAM ${profile.ram} Go, ${effectiveMods(profile).length} mods optionnels)`)
+  return { ok: true, profile }
+})
+
+/** Le joueur ferme la proposition sans choisir : on ne la représente plus. */
+ipcMain.handle('perf:dismissSetup', () => {
+  store.set('perfConfigured', true)
+})
+
+/** Métadonnées des paliers, pour l'affichage (labels, descriptions, RAM conseillée). */
+ipcMain.handle('perf:levels', () => {
+  const totalRamGB = Math.floor(totalmem() / 1024 / 1024 / 1024)
+  return PERF_LEVELS.map(level => ({
+    level,
+    label:       LEVEL_LABELS[level],
+    desc:        LEVEL_DESCS[level],
+    ram:         recommendedRam(level, totalRamGB),
+    gameOptions: gameOptionsFor(level),
+  }))
+})
+
+/** Réglages graphiques effectifs du profil actif (palier + modifications manuelles). */
+ipcMain.handle('perf:activeGameOptions', () => {
+  const profile = getActiveProfile()
+  return {
+    values:    gameOptionsFor(profile.perfLevel, profile.gameOptions),
+    defaults:  gameOptionsFor(profile.perfLevel),
+    editable:  [...EDITABLE_GAME_KEYS],
+    overridden: Object.keys(profile.gameOptions ?? {}),
+  }
+})
+
+/**
+ * Enregistre des réglages graphiques modifiés à la main. Une valeur identique
+ * à celle du palier n'est pas stockée comme surcharge : le réglage continue
+ * alors de suivre le palier si celui-ci change.
+ */
+ipcMain.handle('perf:setGameOptions', (_e, values: Record<string, string>) => {
+  const active   = getActiveProfile()
+  const defaults = gameOptionsFor(active.perfLevel)
+
+  const overrides: Record<string, string> = {}
+  for (const key of EDITABLE_GAME_KEYS) {
+    const v = values[key]
+    if (v !== undefined && v !== defaults[key]) overrides[key] = v
+  }
+
+  const { profile, created } = updateActiveProfile({
+    gameOptions: Object.keys(overrides).length > 0 ? overrides : null,
+  })
+  return { profileId: profile.id, profileName: profile.name, created }
+})
+
+/** Palier de chaque mod du catalogue connu - alimente les badges de l'onglet Mods. */
+ipcMain.handle('perf:modTiers', () => {
+  const catalogue = (store.get('knownOptionalMods') as string[]) ?? []
+  return Object.fromEntries(catalogue.map(path => [path, modTier(path)]))
+})
+
+/**
+ * Écrit les réglages graphiques du palier dans le options.txt des instances
+ * existantes. Geste explicite et confirmé : on touche à un fichier qui
+ * appartient au joueur (seules les clés de performance sont réécrites, les
+ * raccourcis et volumes sont préservés - voir applyGameOptions).
+ */
+ipcMain.handle('perf:applyGameOptions', async () => {
+  if (isRunning()) return { ok: false, error: 'Le jeu est en cours d\'exécution.' }
+
+  const profile = getActiveProfile()
+  const level   = profile.perfLevel
+
+  const existing = INSTANCE_NAMES.filter(n => existsSync(instanceDir(n)))
+  if (existing.length === 0) {
+    // Rien d'installé : les réglages seront écrits à la première installation
+    // par launcherCore (needsInitialGameOptions).
+    return { ok: true, applied: 0 }
+  }
+
+  if (mainWindow) {
+    const { response } = await dialog.showMessageBox(mainWindow, {
+      type: 'question',
+      buttons: ['Annuler', 'Appliquer'],
+      defaultId: 1,
+      cancelId: 0,
+      title: 'Réglages graphiques',
+      message: `Appliquer les réglages graphiques de « ${profile.name} » au jeu ?`,
+      detail: 'Distance d\'affichage, particules, nuages, ombres et mipmaps sont remplacés. '
+            + 'Tes raccourcis clavier, volumes et autres réglages ne sont pas touchés.',
+    })
+    if (response !== 1) return { ok: false, cancelled: true }
+  }
+
+  let applied = 0
+  for (const name of existing) {
+    if (applyGameOptions(instanceDir(name), level, profile.gameOptions)) applied++
+  }
+  wlog(`Réglages graphiques (${profile.name}) appliqués à ${applied} instance(s)`)
+  return { ok: true, applied }
+})
+
 // ── Lancement Minecraft ───────────────────────────────────────────────────────
 ipcMain.handle('launch:start', async (_e, dev?: boolean) => {
   const account = await getAccount()
   if (!account) return { ok: false, error: 'Non connecté.' }
 
-  const ram      = (store.get('ram')      as number)        || 4
-  const javaPath = (store.get('javaPath') as string | null) || null
+  // Le catalogue est réactualisé juste avant le lancement : c'est lui qui
+  // détermine la liste de mods du palier, et il peut avoir bougé côté serveur.
+  await fetchModCatalogue()
+  const profile = applyActiveProfile()
 
-  wlog(`Launch: démarrage - user=${account.username} ram=${ram}Go java=${javaPath ?? 'embarqué'}${dev ? ' [DEV]' : ''}`)
+  wlog(`Launch: démarrage - user=${account.username} profil=${profile.name} palier=${profile.perfLevel} ram=${profile.ram}Go java=${profile.javaPath ?? 'embarqué'}${dev ? ' [DEV]' : ''}`)
   logBuffer.length = 0  // vide le buffer au nouveau lancement
   launchStartTime = Date.now()
   let gameStarted = false
 
   const result = startLaunch(
     account,
-    ram,
-    javaPath,
+    profile,
 
     (progress) => mainWindow?.webContents.send('launch:progress', progress),
 
@@ -370,7 +693,7 @@ ipcMain.handle('launch:start', async (_e, dev?: boolean) => {
         gameStarted = true
         // Le process du jeu est détaché (voir launcherCore.ts) : il survit même
         // si le launcher se ferme complètement.
-        if (store.get('closeOnLaunch') as boolean) app.quit()
+        if (store.get('closeOnLaunch') as boolean) { allowClose(); app.quit() }
         else mainWindow?.minimize()
       }
       logBuffer.push(line)
@@ -464,31 +787,23 @@ ipcMain.handle('logs:openDir', () => {
 })
 
 // ── Mods optionnels ───────────────────────────────────────────────────────────
-ipcMain.handle('mods:getOptional', async () => {
-  try {
-    const account = getActiveAccount()
-    const headers: Record<string, string> = {}
-    if (account?.token) headers['Authorization'] = `Bearer ${account.token}`
-
-    const res = await ekFetch('https://earthkingdoms-mc.fr/launcher/files/?instance=EarthKingdomsV4-beta', { headers })
-    if (!res.ok) return []
-    const data = await res.json() as Array<{ url: string; size: number; hash: string; path: string }>
-
-    return data.filter(f =>
-      f.path?.startsWith('modoptionnel/') ||
-      f.path?.startsWith('modadmin/')
-    )
-  } catch {
-    return []
-  }
-})
+ipcMain.handle('mods:getOptional', () => fetchModCatalogue())
 
 ipcMain.handle('mods:getEnabled', () => {
   return (store.get('enabledOptionalMods') as string[]) ?? []
 })
 
+/**
+ * Enregistre une sélection manuelle de mods.
+ *
+ * Les trois profils intégrés définissent leur sélection à partir du palier et
+ * ne sont pas modifiables : toucher aux mods depuis l'un d'eux crée un profil
+ * personnalisé dérivé, qui devient actif. Le joueur garde ainsi les paliers de
+ * référence intacts et peut y revenir.
+ */
 ipcMain.handle('mods:setEnabled', (_e, paths: string[]) => {
-  store.set('enabledOptionalMods', paths)
+  const { profile, created } = updateActiveProfile({ mods: paths })
+  return { profileId: profile.id, profileName: profile.name, created }
 })
 
 // ── Sélecteur de fichier ──────────────────────────────────────────────────────
@@ -521,33 +836,84 @@ ipcMain.handle('patchnotes:load', async () => {
 
 // ── Profils de lancement ──────────────────────────────────────────────────────
 ipcMain.handle('profiles:list', () => {
-  const profiles  = (store.get('launchProfiles')  as LaunchProfile[]) ?? [{ id: 'default', name: 'Défaut', ram: 4, resW: 854, resH: 480, javaPath: null }]
-  const activeId  = (store.get('activeProfileId') as string)          ?? 'default'
-  return { profiles, activeId }
+  const profiles = (store.get('launchProfiles') as LaunchProfile[]) ?? []
+  const activeId = (store.get('activeProfileId') as string) ?? 'perf-medium'
+  // Nombre de mods réellement actifs par profil - affiché dans le sélecteur.
+  const modCounts = Object.fromEntries(profiles.map(p => [p.id, effectiveMods(p).length]))
+  return { profiles, activeId, modCounts }
 })
 
-ipcMain.handle('profiles:save', (_e, profile: LaunchProfile) => {
-  const profiles = [...((store.get('launchProfiles') as LaunchProfile[]) ?? [])]
-  const idx = profiles.findIndex(p => p.id === profile.id)
-  if (idx >= 0) profiles[idx] = profile
-  else profiles.push(profile)
-  store.set('launchProfiles', profiles)
+/**
+ * Modifie le profil actif (RAM, résolution, Java). Sur un palier intégré, cela
+ * crée un profil personnalisé - voir updateActiveProfile.
+ */
+ipcMain.handle('profiles:update', (_e, patch: Partial<LaunchProfile>) => {
+  const safe: Partial<LaunchProfile> = {}
+  if (typeof patch.ram      === 'number') safe.ram      = patch.ram
+  if (typeof patch.resW     === 'number') safe.resW     = patch.resW
+  if (typeof patch.resH     === 'number') safe.resH     = patch.resH
+  if ('javaPath' in patch)                safe.javaPath = patch.javaPath ?? null
+  const { profile, created } = updateActiveProfile(safe)
+  return { profile, created }
+})
+
+/** Renomme un profil personnalisé. Les paliers intégrés gardent leur nom. */
+ipcMain.handle('profiles:rename', (_e, id: string, name: string) => {
+  const profiles = (store.get('launchProfiles') as LaunchProfile[]) ?? []
+  const profile  = profiles.find(p => p.id === id)
+  if (!profile || profile.builtin || !name.trim()) return
+  saveProfile({ ...profile, name: name.trim() })
+})
+
+/**
+ * Crée un profil personnalisé à partir d'un profil existant (souvent un palier
+ * intégré) et l'active. C'est le seul chemin pour obtenir un profil modifiable.
+ */
+ipcMain.handle('profiles:create', (_e, name: string, sourceId: string) => {
+  const profiles = (store.get('launchProfiles') as LaunchProfile[]) ?? []
+  const source   = profiles.find(p => p.id === sourceId) ?? getActiveProfile()
+  const created: LaunchProfile = {
+    ...source,
+    id:      newProfileId(),
+    name:    name.trim() || nextCustomName(profiles),
+    builtin: false,
+    // Fige la sélection courante du profil source : le profil perso part de ce
+    // que le joueur voyait, et ne bougera plus tout seul.
+    mods:    effectiveMods(source),
+  }
+  saveProfile(created)
+  store.set('activeProfileId', created.id)
+  applyActiveProfile()
+  return created
 })
 
 ipcMain.handle('profiles:delete', (_e, id: string) => {
-  if (id === 'default') return
-  let profiles = ((store.get('launchProfiles') as LaunchProfile[]) ?? []).filter(p => p.id !== id)
-  if (!profiles.find(p => p.id === 'default')) {
-    profiles = [{ id: 'default', name: 'Défaut', ram: 4, resW: 854, resH: 480, javaPath: null }, ...profiles]
-  }
+  // Les paliers intégrés sont les points de repère du système - jamais supprimables.
+  if ((BUILTIN_PROFILE_IDS as readonly string[]).includes(id)) return
+  const profiles = ((store.get('launchProfiles') as LaunchProfile[]) ?? []).filter(p => p.id !== id)
   store.set('launchProfiles', profiles)
   if ((store.get('activeProfileId') as string) === id) {
-    store.set('activeProfileId', 'default')
+    store.set('activeProfileId', 'perf-medium')
+    applyActiveProfile()
   }
+})
+
+/** Remet un profil personnalisé sur les mods et/ou les réglages de son palier. */
+ipcMain.handle('profiles:reset', (_e, id: string, what: 'mods' | 'gameOptions' | 'all') => {
+  const profiles = (store.get('launchProfiles') as LaunchProfile[]) ?? []
+  const profile  = profiles.find(p => p.id === id)
+  if (!profile || profile.builtin) return
+  saveProfile({
+    ...profile,
+    mods:        what === 'gameOptions' ? profile.mods        : null,
+    gameOptions: what === 'mods'        ? profile.gameOptions : null,
+  })
+  if ((store.get('activeProfileId') as string) === id) applyActiveProfile()
 })
 
 ipcMain.handle('profiles:setActive', (_e, id: string) => {
   store.set('activeProfileId', id)
+  return applyActiveProfile()
 })
 
 // ── Multicompte ────────────────────────────────────────────────────────────────

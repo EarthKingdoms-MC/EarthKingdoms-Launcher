@@ -148,6 +148,39 @@ body {
 .btn-secondary:active { filter: brightness(0.9); }
 .btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
 
+/* Bouton d'action principale - même gabarit que .btn-secondary, en plein orange.
+   Utilisé pour l'action attendue d'un écran (valider une proposition, lancer un
+   téléchargement de mise à jour), jamais deux fois sur le même écran. */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 20px;
+  background: var(--orange);
+  color: var(--bg-main);
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  border: 1px solid var(--orange);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 200ms, border-color 200ms;
+}
+.btn-primary:hover {
+  background: var(--orange-hover);
+  border-color: var(--orange-hover);
+}
+.btn-primary:active {
+  background: var(--orange-pressed);
+  border-color: var(--orange-pressed);
+}
+.btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* ── Barre de progression ───────────────────────────── */
 .progress-bar {
   width: 100%;
@@ -174,3 +207,38 @@ body {
   transition: none;
   animation: pb-scan 1.4s ease-in-out infinite;
 }
+
+/* ── Pastille de profil ─────────────────────────────────────────────────
+   Sélecteur de profil de lancement. Partagé par l'écran des paramètres et
+   l'onglet des mods, pour que le même objet se présente pareil aux deux
+   endroits où le joueur change de profil. */
+.profile-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 11px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  cursor: pointer;
+  transition: border-color 160ms, color 160ms;
+}
+.profile-chip:hover { border-color: var(--border-bright); color: var(--text); }
+.profile-chip--active {
+  border-color: var(--orange);
+  color: var(--orange);
+  background: rgba(236, 130, 0, 0.10);
+}
+
+.profile-chip__meta {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+.profile-chip--active .profile-chip__meta { color: var(--orange); opacity: 0.75; }
+.profile-chip:disabled { opacity: 0.4; cursor: not-allowed; }

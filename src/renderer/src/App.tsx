@@ -2,6 +2,7 @@ import { useState, useEffect, Component, ErrorInfo, ReactNode } from 'react'
 import Header        from './components/Header'
 import Footer        from './components/Footer'
 import SkinModal     from './components/SkinModal'
+import PerfSetupModal from './components/PerfSetupModal'
 import LoginPage     from './pages/LoginPage'
 import HomePage      from './pages/HomePage'
 import SettingsPage  from './pages/SettingsPage'
@@ -86,6 +87,10 @@ export default function App() {
   const [macUpdateInfo,      setMacUpdateInfo]     = useState<{ version: string; downloadUrl: string } | null>(null)
   const [updateProgress,     setUpdateProgress]    = useState(-1)
   const [overrideHeadUrl,    setOverrideHeadUrl]   = useState<string | null>(null)
+  const [showPerfSetup,      setShowPerfSetup]    = useState(false)
+  const [settingsDirty,      setSettingsDirty]    = useState(false)
+  // Action retenue en attendant la réponse du joueur sur ses modifications.
+  const [blocked,            setBlocked]          = useState<{ label: string; page?: Page; close?: boolean } | null>(null)
 
   // Rotation des messages de chargement
   useEffect(() => {
@@ -130,6 +135,10 @@ export default function App() {
         const soundOn = await window.api.storeGet('soundEnabled')
         if (typeof soundOn === 'boolean') setSoundEnabled(soundOn)
 
+        // Proposition de palier de performance : une seule fois, tant que le
+        // joueur n'a ni choisi ni refusé.
+        try { setShowPerfSetup(await window.api.perfNeedsSetup()) } catch { /* silencieux */ }
+
         const acc = await window.api.authGetAccount()
         if (acc) {
           setAccount(acc)
@@ -173,6 +182,22 @@ export default function App() {
     window.api.on('update:progress', onProgress as (a: unknown) => void)
     return () => window.api.off('update:progress', onProgress as (a: unknown) => void)
   }, [appState])
+
+  // Prévient le main process : tant que ce drapeau est faux, la fenêtre se
+  // ferme normalement. On n'intercepte donc jamais une fermeture pour rien.
+  useEffect(() => {
+    window.api.unsavedGuard(settingsDirty)
+  }, [settingsDirty])
+
+  // Le main a intercepté la fermeture et attend une réponse.
+  useEffect(() => {
+    const onBeforeClose = () => {
+      if (!settingsDirty) { window.api.closeResponse(true); return }
+      setBlocked({ label: 'Fermer le launcher les abandonnera.', close: true })
+    }
+    window.api.on('app:before-close', onBeforeClose as (a: unknown) => void)
+    return () => window.api.off('app:before-close', onBeforeClose as (a: unknown) => void)
+  }, [settingsDirty])
 
   // Son de fermeture MC
   useEffect(() => {
@@ -243,11 +268,30 @@ export default function App() {
   }
 
   function handleNavigate(p: Page) {
+    // Quitter les paramètres avec des réglages en cours de modification les
+    // perdrait sans un mot : on demande d'abord.
+    if (page === 'settings' && p !== 'settings' && settingsDirty) {
+      setBlocked({ label: 'Changer d\'onglet les abandonnera.', page: p })
+      return
+    }
+    doNavigate(p)
+  }
+
+  function doNavigate(p: Page) {
     setPage(p)
     if (p === 'home' && newsBadge > 0) {
       setNewsBadge(0)
       window.api.storeSet('lastSeenNewsCount', lastNewsCount)
     }
+  }
+
+  /** Réponse du joueur à la fenêtre « modifications non sauvegardées ». */
+  function resolveBlocked(proceed: boolean) {
+    const pending = blocked
+    setBlocked(null)
+    if (!pending) return
+    if (pending.close) { window.api.closeResponse(proceed); return }
+    if (proceed && pending.page) doNavigate(pending.page)
   }
 
   async function handleSaveRam(v: number) {
@@ -425,6 +469,9 @@ export default function App() {
               savedRam={ram}      onSaveRam={handleSaveRam}
               savedResW={resW}    savedResH={resH}  onSaveRes={handleSaveRes}
               savedJavaPath={javaPath}              onSaveJava={handleSaveJava}
+              onDirtyChange={setSettingsDirty}
+              blockedAction={blocked}
+              onResolveBlocked={resolveBlocked}
             />
           )}
           {page === 'logs'       && <LogsPage />}
@@ -437,6 +484,10 @@ export default function App() {
       </main>
 
       <Footer ram={ram} />
+
+      {showPerfSetup && (
+        <PerfSetupModal onDone={() => setShowPerfSetup(false)} />
+      )}
 
       {showSkinModal && account && (
         <SkinModal

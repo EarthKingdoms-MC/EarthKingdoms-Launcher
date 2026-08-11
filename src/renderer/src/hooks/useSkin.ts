@@ -36,13 +36,56 @@ export interface SkinHistoryItem {
   is_current: boolean
 }
 
+export type PerfLevel = 'low' | 'medium' | 'high'
+
 export interface LaunchProfile {
-  id:       string
-  name:     string
-  ram:      number
-  resW:     number
-  resH:     number
-  javaPath: string | null
+  id:        string
+  name:      string
+  ram:       number
+  resW:      number
+  resH:      number
+  javaPath:  string | null
+  perfLevel: PerfLevel
+  builtin:   boolean
+  /** null = la sélection de mods suit le palier ; tableau = sélection figée. */
+  mods:      string[] | null
+  /** Réglages graphiques modifiés à la main, par-dessus ceux du palier. */
+  gameOptions: Record<string, string> | null
+}
+
+export interface HardwareInfo {
+  cpuCores:    number
+  cpuModel:    string
+  totalRamGB:  number
+  gpuName:     string | null
+  gpuKind:     'dedicated' | 'integrated' | 'unknown'
+  score:       number
+  recommended: PerfLevel
+}
+
+export interface PerfLevelInfo {
+  level:       PerfLevel
+  label:       string
+  desc:        string
+  ram:         number
+  gameOptions: Record<string, string>
+}
+
+export interface ActiveGameOptions {
+  /** Valeurs effectives : palier + modifications manuelles. */
+  values:     Record<string, string>
+  /** Valeurs du palier seul - sert à repérer ce qui a été modifié. */
+  defaults:   Record<string, string>
+  /** Clés que l'interface a le droit de proposer. */
+  editable:   string[]
+  overridden: string[]
+}
+
+/** Retour commun des écritures qui peuvent dériver un profil personnalisé. */
+export interface ProfileWriteResult {
+  profileId:   string
+  profileName: string
+  created:     boolean
 }
 
 export interface GameJob {
@@ -111,7 +154,7 @@ declare global {
 
       modsGetOptional(): Promise<Array<{ url: string; size: number; hash: string; path: string }>>
       modsGetEnabled(): Promise<string[]>
-      modsSetEnabled(paths: string[]): Promise<void>
+      modsSetEnabled(paths: string[]): Promise<ProfileWriteResult>
 
       systemTotalRam(): Promise<number>
 
@@ -121,10 +164,26 @@ declare global {
       repairMods(): Promise<{ ok: boolean; error?: string; cancelled?: boolean }>
       patchnotesLoad(): Promise<string | null>
 
-      profilesList(): Promise<{ profiles: LaunchProfile[]; activeId: string }>
-      profilesSave(profile: LaunchProfile): Promise<void>
+      profilesList(): Promise<{ profiles: LaunchProfile[]; activeId: string; modCounts: Record<string, number> }>
+      profilesUpdate(patch: Partial<LaunchProfile>): Promise<{ profile: LaunchProfile; created: boolean }>
+      profilesCreate(name: string, sourceId: string): Promise<LaunchProfile>
+      profilesRename(id: string, name: string): Promise<void>
       profilesDelete(id: string): Promise<void>
-      profilesSetActive(id: string): Promise<void>
+      profilesReset(id: string, what: 'mods' | 'gameOptions' | 'all'): Promise<void>
+      profilesSetActive(id: string): Promise<LaunchProfile>
+
+      perfHardware(): Promise<HardwareInfo>
+      perfNeedsSetup(): Promise<boolean>
+      perfChooseLevel(level: PerfLevel): Promise<{ ok: boolean; profile?: LaunchProfile }>
+      perfDismissSetup(): Promise<void>
+      perfLevels(): Promise<PerfLevelInfo[]>
+      perfModTiers(): Promise<Record<string, PerfLevel>>
+      perfActiveGameOptions(): Promise<ActiveGameOptions>
+      perfSetGameOptions(values: Record<string, string>): Promise<ProfileWriteResult>
+      perfApplyGameOptions(): Promise<{ ok: boolean; applied?: number; cancelled?: boolean; error?: string }>
+
+      unsavedGuard(on: boolean): void
+      closeResponse(doClose: boolean): void
 
       on(channel: string, cb: (...args: unknown[]) => void): void
       off(channel: string, cb: (...args: unknown[]) => void): void

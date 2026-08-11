@@ -1,5 +1,12 @@
 import { useState, useEffect } from 'react'
+import type { LaunchProfile, PerfLevel } from '../hooks/useSkin'
 import './ModsPage.css'
+
+const TIER_LABELS: Record<PerfLevel, string> = {
+  low:    'Optimisation',
+  medium: 'Confort',
+  high:   'Gourmand',
+}
 
 interface OptionalMod {
   path:    string
@@ -49,36 +56,90 @@ function formatSize(bytes: number): string {
 export default function ModsPage() {
   const [mods,    setMods]    = useState<OptionalMod[]>([])
   const [enabled, setEnabled] = useState<Set<string>>(new Set())
-  const [loading, setLoading] = useState(true)
+  const [tiers,   setTiers]   = useState<Record<string, PerfLevel>>({})
+  const [profile,  setProfile]  = useState<LaunchProfile | null>(null)
+  const [profiles, setProfiles] = useState<LaunchProfile[]>([])
+  const [counts,   setCounts]   = useState<Record<string, number>>({})
+  const [newName,  setNewName]  = useState('')
+  const [creating, setCreating] = useState(false)
+  const [notice,   setNotice]   = useState<string | null>(null)
+  const [loading,  setLoading]  = useState(true)
 
   useEffect(() => {
-    Promise.all([
-      window.api.modsGetOptional(),
-      window.api.modsGetEnabled(),
-      window.api.storeGet('optionalModsConfigured'),
-    ]).then(([files, enabledPaths, configured]) => {
-      const parsed = files.map(f => ({ path: f.path, size: f.size, ...parseModInfo(f.path) }))
-      setMods(parsed)
-
-      if (!configured && parsed.length > 0) {
-        // Première ouverture : activer tous les mods par défaut
-        const allPaths = parsed.map(m => m.path)
-        setEnabled(new Set(allPaths))
-        window.api.modsSetEnabled(allPaths)
-        window.api.storeSet('optionalModsConfigured', true)
-      } else {
-        setEnabled(new Set(enabledPaths as string[]))
-      }
-
+    // Le catalogue doit être récupéré avant les paliers : c'est modsGetOptional
+    // qui met le catalogue en cache côté main, et perfModTiers le relit.
+    window.api.modsGetOptional().then(async files => {
+      setMods(files.map(f => ({ path: f.path, size: f.size, ...parseModInfo(f.path) })))
+      const [enabledPaths, modTiers, list] = await Promise.all([
+        window.api.modsGetEnabled(),
+        window.api.perfModTiers(),
+        window.api.profilesList(),
+      ])
+      setEnabled(new Set(enabledPaths))
+      setTiers(modTiers)
+      applyList(list)
       setLoading(false)
-    })
+    }).catch(() => setLoading(false))
   }, [])
+
+  function applyList(list: { profiles: LaunchProfile[]; activeId: string; modCounts: Record<string, number> }) {
+    setProfiles(list.profiles)
+    setCounts(list.modCounts)
+    setProfile(list.profiles.find(p => p.id === list.activeId) ?? null)
+  }
+
+  async function refresh() {
+    const [enabledPaths, list] = await Promise.all([
+      window.api.modsGetEnabled(),
+      window.api.profilesList(),
+    ])
+    setEnabled(new Set(enabledPaths))
+    applyList(list)
+  }
+
+  /** Change de profil sans quitter la page : la liste se recharge sur place. */
+  async function selectProfile(id: string) {
+    if (id === profile?.id) return
+    setNotice(null)
+    await window.api.profilesSetActive(id)
+    await refresh()
+  }
+
+  /**
+   * Crée un profil personnalisé depuis l'actif. Pratique ici : on prépare un
+   * profil vierge avant de composer sa liste de mods, plutôt que de laisser la
+   * dérivation automatique le nommer à notre place.
+   */
+  async function createProfile() {
+    const name = newName.trim()
+    if (!name) return
+    await window.api.profilesCreate(name, profile?.id ?? '')
+    setNewName('')
+    setCreating(false)
+    await refresh()
+    setNotice(`Profil « ${name} » créé et activé. Tes changements de mods iront dedans.`)
+  }
+
+  /**
+   * Enregistre une sélection. Le main process crée un profil personnalisé si le
+   * profil actif est un palier intégré - on le signale plutôt que de laisser le
+   * joueur découvrir un nouveau profil sans explication.
+   */
+  async function persist(paths: string[]) {
+    try {
+      const res = await window.api.modsSetEnabled(paths)
+      if (res?.created) {
+        setNotice(`Profil « ${res.profileName} » créé - le palier d'origine reste intact.`)
+      }
+      applyList(await window.api.profilesList())
+    } catch { /* silencieux */ }
+  }
 
   function toggle(path: string) {
     setEnabled(prev => {
       const next = new Set(prev)
       next.has(path) ? next.delete(path) : next.add(path)
-      window.api.modsSetEnabled([...next])
+      persist([...next])
       return next
     })
   }
@@ -86,12 +147,12 @@ export default function ModsPage() {
   function enableAll() {
     const allPaths = mods.map(m => m.path)
     setEnabled(new Set(allPaths))
-    window.api.modsSetEnabled(allPaths)
+    persist(allPaths)
   }
 
   function disableAll() {
     setEnabled(new Set())
-    window.api.modsSetEnabled([])
+    persist([])
   }
 
   return (
@@ -106,6 +167,51 @@ export default function ModsPage() {
         <p className="mods__subtitle">
           Activés au prochain lancement - le modpack principal n'est pas modifiable ici.
         </p>
+        {!loading && profiles.length > 0 && (
+          <div className="mods__profiles">
+            <span className="mods__profiles-label">Profil</span>
+            <div className="mods__profiles-list">
+              {profiles.map(p => (
+                <button
+                  key={p.id}
+                  className={`profile-chip ${profile?.id === p.id ? 'profile-chip--active' : ''}`}
+                  onClick={() => selectProfile(p.id)}
+                  title={p.builtin ? 'Palier intégré - le modifier créera un profil personnalisé' : 'Profil personnalisé'}
+                >
+                  {p.name}
+                  <span className="profile-chip__meta">{counts[p.id] ?? 0}</span>
+                </button>
+              ))}
+              {creating ? (
+                <>
+                  <input
+                    className="mods__profiles-input"
+                    placeholder="Nom du profil…"
+                    value={newName}
+                    onChange={e => setNewName(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter')  createProfile()
+                      if (e.key === 'Escape') { setCreating(false); setNewName('') }
+                    }}
+                    autoFocus
+                  />
+                  <button className="profile-chip" onClick={createProfile} disabled={!newName.trim()}>Créer</button>
+                  <button className="profile-chip" onClick={() => { setCreating(false); setNewName('') }}>Annuler</button>
+                </>
+              ) : (
+                <button className="profile-chip mods__profiles-add" onClick={() => setCreating(true)}>+ Nouveau</button>
+              )}
+            </div>
+          </div>
+        )}
+        {profile && (
+          <p className="mods__profile">
+            {profile.builtin
+              ? 'Palier intégré : cette liste suit le palier. Toucher un interrupteur créera un profil personnalisé.'
+              : 'Profil personnalisé : cette liste lui appartient.'}
+          </p>
+        )}
+        {notice && <p className="mods__notice">{notice}</p>}
       </div>
 
       <div className="mods__list">
@@ -133,6 +239,11 @@ export default function ModsPage() {
                   <div className="mod-row__name-line">
                     <span className="mod-row__name">{mod.name}</span>
                     {isAdmin && <span className="mod-row__admin-badge">ADMIN</span>}
+                    {!isAdmin && tiers[mod.path] && (
+                      <span className={`mod-row__tier mod-row__tier--${tiers[mod.path]}`}>
+                        {TIER_LABELS[tiers[mod.path]]}
+                      </span>
+                    )}
                     {mod.version && <span className="mod-row__version">v{mod.version}</span>}
                     <span className="mod-row__size">{formatSize(mod.size)}</span>
                   </div>
