@@ -6,23 +6,13 @@ import './DynmapPage.css'
 // sur le fichier statique qu'elle embarque elle-même en iframe.
 const DYNMAP_URL = 'https://earthkingdoms-mc.fr/livemap/index.html'
 
-// Déclaration du type Electron webview pour TypeScript
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      webview: React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & {
-        src?: string
-        allowpopups?: string
-        useragent?: string
-      }
-    }
-  }
-}
+// L'élément JSX <webview> et son type HTMLWebViewElement sont déjà fournis par
+// @types/react - le redéclarer ici entrait en conflit avec cette définition.
 
 export default function DynmapPage() {
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState(false)
-  const webviewRef = useRef<HTMLElement>(null)
+  const webviewRef = useRef<HTMLWebViewElement>(null)
 
   useEffect(() => {
     const el = webviewRef.current

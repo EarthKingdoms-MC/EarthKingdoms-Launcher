@@ -270,7 +270,12 @@ export function startLaunch(
     const finish = (fn: () => void) => {
       if (handled) return
       handled = true
-      process.off('unhandledRejection', onUnhandledRejection)
+      // @types/node ne déclare pas de surcharge « unhandledRejection » pour
+      // off(), alors qu'Electron en ajoute une pour son seul évènement 'loaded'
+      // sur NodeJS.Process - celle-ci masque la signature générique héritée
+      // d'EventEmitter. On passe donc explicitement par EventEmitter, qui est
+      // la même méthode à l'exécution.
+      ;(process as NodeJS.EventEmitter).off('unhandledRejection', onUnhandledRejection)
       currentLaunch = null
       fn()
     }

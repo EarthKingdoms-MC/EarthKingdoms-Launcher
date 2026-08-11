@@ -3,10 +3,6 @@ import { Page } from '../App'
 import { useSkinHead } from '../hooks/useSkin'
 import './Header.css'
 
-declare global {
-  interface Window { api: { minimize(): void; maximize(): void; close(): void } }
-}
-
 interface AccountInfo {
   username: string
   uuid:     string
