@@ -172,14 +172,14 @@ export default function HomePage({ canPlayDev }: Props) {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                   <polygon points="5 3 19 12 5 21 5 3"/>
                 </svg>
-                JOUER - DEV
+                JOUER - BETA
               </button>
               )}
             </div>
           ) : (
             <div className="home__loading">
               <div className="home__loading-label">
-                {launchDev && <span className="home__loading-dev-badge">DEV</span>}
+                {launchDev && <span className="home__loading-dev-badge">BETA</span>}
                 <span style={verifiedOnly ? { color: 'var(--success)' } : undefined}>
                   {stepLabel || 'Préparation…'}
                 </span>

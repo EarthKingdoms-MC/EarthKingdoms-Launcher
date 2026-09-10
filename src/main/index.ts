@@ -287,17 +287,31 @@ ipcMain.handle('skin:load', async (_e, username: string) => {
             const buf = await res.arrayBuffer()
             return `data:image/png;base64,${Buffer.from(buf).toString('base64')}`
           }
+          wlog(`Skin: échec téléchargement skin actuel (${fullUrl}) - HTTP ${res.status}`)
+        } else {
+          wlog(`Skin: historique vide ou sans entrée is_current pour ${username}`)
         }
+      } else {
+        wlog(`Skin: historique inaccessible pour ${username} - HTTP ${histRes.status}`)
       }
-    } catch { /* fallback ci-dessous */ }
+    } catch (e) {
+      wlog(`Skin: erreur historique pour ${username} - ${e}`)
+    }
+  } else {
+    wlog(`Skin: aucun compte actif pour charger le skin de ${username}`)
   }
   // Fallback : URL basée sur le username
   try {
-    const res = await ekFetch(`https://earthkingdoms-mc.fr/skins/${username}.png?t=${Date.now()}`, { cache: 'no-store' })
-    if (!res.ok) return null
+    const fallbackUrl = `https://earthkingdoms-mc.fr/skins/${username.toLowerCase()}.png?t=${Date.now()}`
+    const res = await ekFetch(fallbackUrl, { cache: 'no-store' })
+    if (!res.ok) {
+      wlog(`Skin: fallback introuvable (${fallbackUrl}) - HTTP ${res.status}`)
+      return null
+    }
     const buf = await res.arrayBuffer()
     return `data:image/png;base64,${Buffer.from(buf).toString('base64')}`
-  } catch {
+  } catch (e) {
+    wlog(`Skin: erreur fallback pour ${username} - ${e}`)
     return null
   }
 })
@@ -360,7 +374,7 @@ ipcMain.handle('skin:upload', async (_e, fileData: number[]) => {
     const body = Buffer.concat([
       Buffer.from(
         `--${boundary}\r\n` +
-        `Content-Disposition: form-data; name="skin"; filename="${account.username}.png"\r\n` +
+        `Content-Disposition: form-data; name="skin"; filename="${account.username.toLowerCase()}.png"\r\n` +
         `Content-Type: image/png\r\n\r\n`
       ),
       fileBuffer,

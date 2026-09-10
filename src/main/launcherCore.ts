@@ -34,10 +34,16 @@ const _nativeFetch = global.fetch
     const ua = getLauncherUA()
     const patchedHeaders = new Headers((init as RequestInit | undefined)?.headers)
     patchedHeaders.set('User-Agent', ua)
+    if (account?.token) patchedHeaders.set('Authorization', `Bearer ${account.token}`)
     const patchedInit = { ...(init as RequestInit | undefined), headers: patchedHeaders }
 
     return _nativeFetch(input, patchedInit as RequestInit).then(async res => {
-      const json = await res.json() as Array<{ url: string; size: number; hash: string; path: string }>
+      const raw = await res.json()
+      if (!Array.isArray(raw)) {
+        const message = (raw as { error?: string })?.error ?? 'Réponse invalide du serveur de fichiers.'
+        throw new Error(`Instance introuvable ou inaccessible (${message})`)
+      }
+      const json = raw as Array<{ url: string; size: number; hash: string; path: string }>
       const enabled = (store.get('enabledOptionalMods') as string[]) ?? []
 
       const transformed = json

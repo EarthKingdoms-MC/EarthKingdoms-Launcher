@@ -252,4 +252,4 @@ export function useSkinTexture(username: string, refreshKey?: number): string | 
 }
 
 export const getSkinUrl = (username: string) =>
-  `https://earthkingdoms-mc.fr/skins/${username}.png`
+  `https://earthkingdoms-mc.fr/skins/${username.toLowerCase()}.png`
