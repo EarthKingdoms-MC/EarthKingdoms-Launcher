@@ -109,13 +109,18 @@ export function stopLaunch(): void {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function startLaunch(
-  account:    Account,
-  profile:    LaunchProfile,
-  onProgress: (data: LaunchProgressEvent) => void,
-  onLog:      (line: string) => void,
-  onClose:    (code: number | null) => void,
-  onError:    (err: string) => void,
-  dev = false
+  account:       Account,
+  profile:       LaunchProfile,
+  onProgress:    (data: LaunchProgressEvent) => void,
+  onLog:         (line: string) => void,
+  onClose:       (code: number | null) => void,
+  onError:       (err: string) => void,
+  dev = false,
+  // Jeton courte durée (~90s) obtenu du Web juste avant l'appel à startLaunch,
+  // distinct du LauncherToken de session (account.token). Vérifié localement
+  // par Core sans rappel au Web. Ne JAMAIS le confondre avec ek.launcher.token
+  // ni l'écrire dans .ek_auth (qui reste dédié au LauncherToken existant).
+  gameAuthToken?: string
 ): { ok: boolean; error?: string } {
 
   if (isRunning()) return { ok: false, error: 'Minecraft est déjà en cours d\'exécution.' }
@@ -155,6 +160,10 @@ export function startLaunch(
     `-Dek.launcher.token=${account.token}`,
     `-Dek.launcher.username=${account.username}`,
     '-Dearthkingdoms.api.url=https://earthkingdoms-mc.fr/api',
+    // GameAuthToken (~90s) : preuve que le Web a autorisé CE lancement,
+    // distincte du LauncherToken ci-dessus. Absente si l'appel a échoué -
+    // dans ce cas startLaunch n'est de toute façon pas appelé (voir index.ts).
+    ...(gameAuthToken ? [`-Dek.launcher.gameAuthToken=${gameAuthToken}`] : []),
 
     // G1GC (flags d'Aikar, ajustés selon le palier et la taille du tas)
     ...gcArgs(perfLevel, maxRamMB),

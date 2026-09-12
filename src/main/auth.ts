@@ -191,6 +191,42 @@ export async function getAccount(): Promise<Account | null> {
   return null
 }
 
+// ─── Game Auth Token ────────────────────────────────────────────────────────
+// Jeton courte durée (~90s) prouvant que le Web a autorisé ce lancement pour
+// cet utilisateur, vérifié localement par Core (mod) sans rappel au Web à
+// chaque connexion. Généré juste avant chaque lancement du jeu (pas au login).
+// Distinct du LauncherToken de session existant : ne remplace rien, ne touche
+// pas à .ek_auth ni au stockage de compte.
+
+export async function getGameAuthToken(account: Account): Promise<{ token: string; expiresAt: number }> {
+  let res: Response
+  try {
+    res = await apiFetch('/auth/launcher/game-token', {
+      method:  'POST',
+      headers: { Authorization: `Bearer ${account.token}` },
+    })
+  } catch {
+    throw new Error('Impossible de contacter le serveur pour autoriser le lancement. Vérifie ta connexion.')
+  }
+
+  if (!res.ok) {
+    const messages: Record<number, string> = {
+      401: 'Session expirée, reconnecte-toi avant de relancer le jeu.',
+      409: 'Une autorisation de lancement est déjà en cours pour ce compte. Réessaie dans quelques secondes.',
+      429: 'Trop de tentatives de lancement. Réessaie dans quelques minutes.',
+      500: 'Erreur serveur (500) lors de l\'autorisation du lancement.',
+      502: 'Serveur inaccessible (502) lors de l\'autorisation du lancement.',
+      503: 'Service indisponible (503) lors de l\'autorisation du lancement.',
+      504: 'Timeout serveur (504) lors de l\'autorisation du lancement.',
+    }
+    throw new Error(messages[res.status] ?? `Erreur ${res.status} lors de l'autorisation du lancement.`)
+  }
+
+  const data = await res.json() as { token: string; expiresAt: number }
+  if (!data?.token) throw new Error('Réponse invalide du serveur (jeton de lancement manquant).')
+  return data
+}
+
 // ─── Logout ─────────────────────────────────────────────────────────────────
 
 export function logout(uuid?: string): Account | null {

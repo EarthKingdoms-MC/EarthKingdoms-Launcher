@@ -13,7 +13,7 @@ import {
   LEVEL_LABELS, LEVEL_DESCS, PERF_LEVELS, isPerfLevel, recommendedRam,
 } from './perfProfiles'
 import { detectHardware } from './hardware'
-import { login, logout, getAccount, getActiveAccount, getAccounts, switchAccount, removeAccount, getLauncherUA } from './auth'
+import { login, logout, getAccount, getActiveAccount, getAccounts, switchAccount, removeAccount, getLauncherUA, getGameAuthToken } from './auth'
 
 /** net.fetch avec User-Agent launcher - permet le bypass Cloudflare bot protection */
 function ekFetch(url: string, init?: Parameters<typeof net.fetch>[1]): ReturnType<typeof net.fetch> {
@@ -691,6 +691,20 @@ ipcMain.handle('launch:start', async (_e, dev?: boolean) => {
   await fetchModCatalogue()
   const profile = applyActiveProfile()
 
+  // GameAuthToken : preuve courte durée (~90s) que le Web autorise CE lancement,
+  // demandée au dernier moment (pas au login). Si le Web est injoignable ou
+  // refuse, on n'initie PAS le lancement de Minecraft - jamais de jeton de
+  // secours local, jamais de succès simulé.
+  let gameAuthToken: string
+  try {
+    const gameAuth = await getGameAuthToken(account)
+    gameAuthToken = gameAuth.token
+  } catch (err: any) {
+    const message = err?.message ?? 'Impossible d\'autoriser le lancement auprès du serveur.'
+    wlog(`Launch: échec autorisation - ${message}`)
+    return { ok: false, error: message }
+  }
+
   wlog(`Launch: démarrage - user=${account.username} profil=${profile.name} palier=${profile.perfLevel} ram=${profile.ram}Go java=${profile.javaPath ?? 'embarqué'}${dev ? ' [DEV]' : ''}`)
   logBuffer.length = 0  // vide le buffer au nouveau lancement
   launchStartTime = Date.now()
@@ -740,7 +754,8 @@ ipcMain.handle('launch:start', async (_e, dev?: boolean) => {
       if (mainWindow?.isMinimized()) { mainWindow.restore(); mainWindow.focus() }
     },
 
-    dev === true
+    dev === true,
+    gameAuthToken
   )
 
   if (result.ok) {
