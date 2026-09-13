@@ -567,7 +567,7 @@ let cachedHardware: Awaited<ReturnType<typeof detectHardware>> | null = null
 ipcMain.handle('perf:hardware', async () => {
   if (!cachedHardware) {
     cachedHardware = await detectHardware()
-    wlog(`Matériel : ${cachedHardware.cpuCores} coeurs, ${cachedHardware.totalRamGB} Go, GPU ${cachedHardware.gpuName ?? 'inconnu'} (${cachedHardware.gpuKind}) → palier ${cachedHardware.recommended}`)
+    wlog(`Matériel : ${cachedHardware.cpuCores} threads, ${cachedHardware.totalRamGB} Go, GPU ${cachedHardware.gpuName ?? 'inconnu'} (${cachedHardware.gpuKind}) → palier ${cachedHardware.recommended}`)
   }
   return cachedHardware
 })

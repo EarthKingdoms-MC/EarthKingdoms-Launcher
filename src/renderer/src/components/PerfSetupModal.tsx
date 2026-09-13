@@ -78,7 +78,7 @@ export default function PerfSetupModal({ onDone }: Props) {
             <div className="perf-setup__hw">
               <div className="perf-setup__hw-item">
                 <span className="perf-setup__hw-key">Processeur</span>
-                <span className="perf-setup__hw-val" title={hw.cpuModel}>{hw.cpuCores} cœurs</span>
+                <span className="perf-setup__hw-val" title={hw.cpuModel}>{hw.cpuCores} threads</span>
               </div>
               <div className="perf-setup__hw-item">
                 <span className="perf-setup__hw-key">Mémoire</span>
