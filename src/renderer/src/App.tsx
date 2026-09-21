@@ -245,6 +245,13 @@ export default function App() {
     setAppState('login')
   }
 
+  /** Le compte a déjà été retiré côté main (reset token) : on resynchronise l'UI. */
+  async function handleSessionLost() {
+    const acc = await window.api.authGetAccount()
+    if (acc) { setAccount(acc); refreshAccounts() }
+    else { setAccount(null); setAccounts([]); setAppState('login') }
+  }
+
   async function handleSwitchAccount(uuid: string) {
     setOverrideHeadUrl(null)
     const result = await window.api.authSwitchAccount(uuid)
@@ -472,6 +479,7 @@ export default function App() {
               onDirtyChange={setSettingsDirty}
               blockedAction={blocked}
               onResolveBlocked={resolveBlocked}
+              onSessionLost={handleSessionLost}
             />
           )}
           {page === 'logs'       && <LogsPage />}

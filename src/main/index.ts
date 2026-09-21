@@ -13,7 +13,7 @@ import {
   LEVEL_LABELS, LEVEL_DESCS, PERF_LEVELS, isPerfLevel, recommendedRam,
 } from './perfProfiles'
 import { detectHardware } from './hardware'
-import { login, logout, getAccount, getActiveAccount, getAccounts, switchAccount, removeAccount, getLauncherUA, getGameAuthToken } from './auth'
+import { login, logout, getAccount, getActiveAccount, getAccounts, switchAccount, removeAccount, getLauncherUA, getGameAuthToken, forceRefreshActive, resetActiveToken } from './auth'
 
 /** net.fetch avec User-Agent launcher - permet le bypass Cloudflare bot protection */
 function ekFetch(url: string, init?: Parameters<typeof net.fetch>[1]): ReturnType<typeof net.fetch> {
@@ -198,6 +198,19 @@ ipcMain.handle('auth:getAccount', async () => {
 
 ipcMain.handle('auth:logout', () => {
   logout()
+})
+
+// Debug : réinitialise le token (fichiers .ek_auth + refresh forcé, sinon déconnexion)
+ipcMain.handle('auth:resetToken', async () => {
+  if (isRunning()) return { ok: false, error: 'Le jeu est en cours d\'exécution.' }
+  const files = [
+    join(app.getPath('appData'), '.ek_auth'),
+    ...['EarthKingdoms', 'EarthKingdoms-dev'].map(i =>
+      join(app.getPath('userData'), 'EarthKingdoms', 'instances', i, '.ek_auth')),
+  ]
+  const result = await resetActiveToken(files)
+  wlog(`Debug: reset token - ${result.status}`)
+  return result
 })
 
 // ── Statut serveur Minecraft ─────────────────────────────────────────────────
@@ -683,13 +696,19 @@ ipcMain.handle('perf:applyGameOptions', async () => {
 
 // ── Lancement Minecraft ───────────────────────────────────────────────────────
 ipcMain.handle('launch:start', async (_e, dev?: boolean) => {
-  const account = await getAccount()
+  if (!(await getAccount())) return { ok: false, error: 'Non connecté.' }
+  // Refresh systématique avant lancement : le serveur de jeu rejette les tokens
+  // qu'il juge expirés même si la date locale paraît encore valide.
+  const account = await forceRefreshActive()
   if (!account) return { ok: false, error: 'Non connecté.' }
 
   // Le catalogue est réactualisé juste avant le lancement : c'est lui qui
   // détermine la liste de mods du palier, et il peut avoir bougé côté serveur.
-  await fetchModCatalogue()
-  const profile = applyActiveProfile()
+  // Lancé en parallèle du GameAuthToken ci-dessous - les deux appels sont
+  // indépendants, pas besoin de payer deux allers-retours réseau à la suite
+  // avant de démarrer la JVM. fetchModCatalogue() avale déjà ses propres
+  // erreurs (retourne [] en cas d'échec), donc rien à catcher ici.
+  const catalogueFetch = fetchModCatalogue()
 
   // GameAuthToken : preuve courte durée (~90s) que le Web autorise CE lancement,
   // demandée au dernier moment (pas au login). Si le Web est injoignable ou
@@ -704,6 +723,9 @@ ipcMain.handle('launch:start', async (_e, dev?: boolean) => {
     wlog(`Launch: échec autorisation - ${message}`)
     return { ok: false, error: message }
   }
+
+  await catalogueFetch
+  const profile = applyActiveProfile()
 
   wlog(`Launch: démarrage - user=${account.username} profil=${profile.name} palier=${profile.perfLevel} ram=${profile.ram}Go java=${profile.javaPath ?? 'embarqué'}${dev ? ' [DEV]' : ''}`)
   logBuffer.length = 0  // vide le buffer au nouveau lancement

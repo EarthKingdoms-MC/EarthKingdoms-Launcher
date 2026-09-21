@@ -1,4 +1,5 @@
 import crypto from 'crypto'
+import fs from 'fs'
 import { app, net } from 'electron'
 import { store, Account, getStoredAccounts, setStoredAccounts, getStoredAccount, setStoredAccount } from './store'
 
@@ -166,6 +167,39 @@ async function refreshToken(account: Account): Promise<Account | null> {
   } catch {
     return null
   }
+}
+
+/**
+ * Force un refresh du token du compte actif, sans tenir compte de la date
+ * d'expiration locale (le serveur peut considérer le token expiré alors que
+ * l'horloge locale dit le contraire). Retourne le compte actif à jour, ou le
+ * compte inchangé si le refresh échoue (le lancement du jeu reste alors tenté).
+ */
+export async function forceRefreshActive(): Promise<Account | null> {
+  const account = getActiveAccount()
+  if (!account) return null
+  return (await refreshToken(account)) ?? account
+}
+
+/**
+ * Debug : réinitialise le token du compte actif.
+ *  - supprime les fichiers .ek_auth (appData + instances) qui peuvent contenir un token périmé
+ *  - tente un refresh forcé ; s'il échoue, le compte est retiré (reconnexion nécessaire)
+ */
+export async function resetActiveToken(
+  authFiles: string[]
+): Promise<{ ok: boolean; status: 'refreshed' | 'logged_out' | 'no_account' }> {
+  for (const f of authFiles) {
+    try { fs.rmSync(f, { force: true }) } catch { /* ignore */ }
+  }
+  const account = getActiveAccount()
+  if (!account) return { ok: true, status: 'no_account' }
+
+  const refreshed = await refreshToken(account)
+  if (refreshed) return { ok: true, status: 'refreshed' }
+
+  removeAccount(account.uuid)
+  return { ok: true, status: 'logged_out' }
 }
 
 // ─── getAccount (appelé au démarrage) ───────────────────────────────────────

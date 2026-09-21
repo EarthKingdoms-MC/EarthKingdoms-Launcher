@@ -124,6 +124,7 @@ declare global {
       authLogin(username: string, password: string): Promise<AuthLoginResult>
       authGetAccount(): Promise<Account | null>
       authLogout(): Promise<void>
+      authResetToken(): Promise<{ ok: boolean; error?: string; status?: 'refreshed' | 'logged_out' | 'no_account' }>
       authGetAccounts(): Promise<Array<{ username: string; uuid: string; isAdmin: boolean }>>
       authSwitchAccount(uuid: string): Promise<{ ok: boolean; account?: Account }>
       authRemoveAccount(uuid: string): Promise<{ ok: boolean; nextAccount?: Account | null }>

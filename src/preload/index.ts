@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('api', {
   authLogin:         (username: string, password: string) => ipcRenderer.invoke('auth:login', username, password),
   authGetAccount:    ()                                   => ipcRenderer.invoke('auth:getAccount'),
   authLogout:        ()                                   => ipcRenderer.invoke('auth:logout'),
+  authResetToken:    ()                                   => ipcRenderer.invoke('auth:resetToken'),
   authGetAccounts:   ()                                   => ipcRenderer.invoke('auth:getAccounts'),
   authSwitchAccount: (uuid: string)                       => ipcRenderer.invoke('auth:switchAccount', uuid),
   authRemoveAccount: (uuid: string)                       => ipcRenderer.invoke('auth:removeAccount', uuid),

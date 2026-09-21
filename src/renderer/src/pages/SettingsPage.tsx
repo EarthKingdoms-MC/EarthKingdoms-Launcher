@@ -93,13 +93,15 @@ interface Props {
    */
   blockedAction: { label: string } | null
   onResolveBlocked: (proceed: boolean) => void
+  /** Le compte actif a été retiré côté main (reset token échoué) : retour à l'écran de connexion. */
+  onSessionLost: () => void
 }
 
 export default function SettingsPage({
   savedRam, onSaveRam,
   savedResW, savedResH, onSaveRes,
   savedJavaPath, onSaveJava,
-  onDirtyChange, blockedAction, onResolveBlocked,
+  onDirtyChange, blockedAction, onResolveBlocked, onSessionLost,
 }: Props) {
   const [ram,             setRam]             = useState(savedRam)
   const [resPreset,       setResPreset]       = useState(() => getPresetIndex(savedResW, savedResH))
@@ -126,6 +128,8 @@ export default function SettingsPage({
   const [closeOnLaunch,   setCloseOnLaunch]   = useState(false)
   const [repairing,       setRepairing]       = useState(false)
   const [repairMsg,       setRepairMsg]       = useState<string | null>(null)
+  const [resettingToken,  setResettingToken]  = useState(false)
+  const [tokenMsg,        setTokenMsg]        = useState<string | null>(null)
   const [appVersion,      setAppVersion]      = useState('…')
   const [checkingUpdate,  setCheckingUpdate]  = useState(false)
   const [updateMsg,       setUpdateMsg]       = useState<string | null>(null)
@@ -335,6 +339,21 @@ export default function SettingsPage({
     const next = !closeOnLaunch
     setCloseOnLaunch(next)
     await window.api.storeSet('closeOnLaunch', next)
+  }
+
+  async function handleResetToken() {
+    setResettingToken(true)
+    setTokenMsg(null)
+    try {
+      const res = await window.api.authResetToken()
+      if (!res.ok)                         setTokenMsg(res.error ?? 'Erreur inconnue.')
+      else if (res.status === 'refreshed') setTokenMsg('✓ Token renouvelé. Tu peux relancer le jeu.')
+      else                                 onSessionLost()
+    } catch {
+      setTokenMsg('Erreur inconnue.')
+    } finally {
+      setResettingToken(false)
+    }
   }
 
   async function handleRepair() {
@@ -828,6 +847,30 @@ export default function SettingsPage({
           {repairMsg && (
             <span className={`settings__hint ${repairMsg.startsWith('✓') ? 'settings__hint--ok' : 'settings__hint--warn'}`} style={{ padding: '2px 16px 0' }}>
               {repairMsg}
+            </span>
+          )}
+        </section>
+
+        {/* ── Debug ───────────────────────────────────────── */}
+        <section className="settings__section">
+          <h2 className="settings__section-title settings__section-title--muted">
+            Debug
+          </h2>
+          <div className="settings__row">
+            <div>
+              <label>Réinitialiser le token</label>
+              <span className="settings__hint">
+                En cas de « Authentification EarthKingdoms requise » alors que tu passes par le launcher :
+                supprime les tokens en cache et en redemande un nouveau. Si ça échoue, tu seras déconnecté.
+              </span>
+            </div>
+            <button className="btn-secondary" onClick={handleResetToken} disabled={resettingToken}>
+              {resettingToken ? 'En cours…' : 'Reset token'}
+            </button>
+          </div>
+          {tokenMsg && (
+            <span className={`settings__hint ${tokenMsg.startsWith('✓') ? 'settings__hint--ok' : 'settings__hint--warn'}`} style={{ padding: '2px 16px 0' }}>
+              {tokenMsg}
             </span>
           )}
         </section>
