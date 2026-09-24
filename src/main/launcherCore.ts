@@ -6,6 +6,7 @@ import type { Account, LaunchProfile } from './store'
 import { gcArgs, applyGameOptions, needsInitialGameOptions } from './perfProfiles'
 import { getActiveAccount, getLauncherUA } from './auth'
 import { ensureDevServerEntry } from './devServer'
+import { gameRoot, instanceDir as getInstanceDir, INSTANCE_NAME } from './paths'
 
 // Patch global.fetch pour mc-java-core :
 //  1. Force HTTPS (le JSON contient des URLs http://)
@@ -127,13 +128,11 @@ export function startLaunch(
 
   const { ram, javaPath, perfLevel } = profile
 
-  const userData     = app.getPath('userData')
-  const basePath     = path.join(userData, 'EarthKingdoms')        // racine mc-java-core
-  // Dossier séparé pour la version dev - même modpack (aucune instance de fichiers
-  // dev distincte côté serveur), seul le serveur Minecraft rejoint diffère, ajouté
-  // à sa propre liste multijoueur pour ne jamais toucher aux configs/logs de la prod.
-  const instanceName = dev ? 'EarthKingdoms-dev' : 'EarthKingdoms'
-  const instanceDir  = path.join(basePath, 'instances', instanceName) // dossier Minecraft
+  const basePath     = gameRoot()                                   // racine mc-java-core
+  // Une seule instance pour prod et dev (voir paths.ts) : le mode dev change le modpack
+  // téléchargé et le serveur rejoint, pas le dossier du joueur.
+  const instanceName = INSTANCE_NAME
+  const instanceDir  = getInstanceDir(instanceName) // dossier Minecraft
 
   if (dev) ensureDevServerEntry(instanceDir)
 

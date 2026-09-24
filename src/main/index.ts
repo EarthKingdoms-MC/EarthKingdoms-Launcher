@@ -1,5 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, net, shell, Notification } from 'electron'
 import { join }    from 'path'
+import { gameRoot, instanceDir, migrateLegacyGameRoot, INSTANCE_NAME } from './paths'
 
 // Permet l'autoplay audio sans geste utilisateur → préchauffage pipeline au démarrage
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required')
@@ -47,7 +48,7 @@ function allowClose(): void {
 let launcherLogFile: string | null = null
 
 function initLauncherLog(): void {
-  const dir = join(app.getPath('userData'), 'EarthKingdoms', 'logs')
+  const dir = join(gameRoot(), 'logs')
   mkdirSync(dir, { recursive: true })
 
   // Rotation : supprime les fichiers launcher-*.log de plus de 7 jours
@@ -129,6 +130,7 @@ ipcMain.on('app:close-response', (_e, doClose: boolean) => {
 })
 
 app.whenReady().then(() => {
+  migrateLegacyGameRoot()
   initLauncherLog()
   wlog(`Launcher démarré - v${app.getVersion()}`)
 
@@ -205,8 +207,7 @@ ipcMain.handle('auth:resetToken', async () => {
   if (isRunning()) return { ok: false, error: 'Le jeu est en cours d\'exécution.' }
   const files = [
     join(app.getPath('appData'), '.ek_auth'),
-    ...['EarthKingdoms', 'EarthKingdoms-dev'].map(i =>
-      join(app.getPath('userData'), 'EarthKingdoms', 'instances', i, '.ek_auth')),
+    join(instanceDir(), '.ek_auth'),
   ]
   const result = await resetActiveToken(files)
   wlog(`Debug: reset token - ${result.status}`)
@@ -440,8 +441,6 @@ ipcMain.handle('skin:upload', async (_e, fileData: number[]) => {
 // lui : plusieurs endroits du launcher les lisent encore directement (Footer,
 // patch fetch de launcherCore, écran de paramètres).
 
-const INSTANCE_NAMES = ['EarthKingdoms', 'EarthKingdoms-dev']
-
 interface CatalogueEntry { url: string; size: number; hash: string; path: string }
 
 /**
@@ -471,10 +470,6 @@ async function fetchModCatalogue(): Promise<CatalogueEntry[]> {
     // Hors ligne : le dernier catalogue connu reste en place.
     return []
   }
-}
-
-function instanceDir(name: string): string {
-  return join(app.getPath('userData'), 'EarthKingdoms', 'instances', name)
 }
 
 /**
@@ -665,7 +660,7 @@ ipcMain.handle('perf:applyGameOptions', async () => {
   const profile = getActiveProfile()
   const level   = profile.perfLevel
 
-  const existing = INSTANCE_NAMES.filter(n => existsSync(instanceDir(n)))
+  const existing = existsSync(instanceDir()) ? [INSTANCE_NAME] : []
   if (existing.length === 0) {
     // Rien d'installé : les réglages seront écrits à la première installation
     // par launcherCore (needsInitialGameOptions).
@@ -812,13 +807,10 @@ ipcMain.handle('repair:mods', async () => {
     if (response !== 1) return { ok: false, cancelled: true }
   }
 
-  const basePath = join(app.getPath('userData'), 'EarthKingdoms', 'instances')
   let removed = 0
-  for (const instance of ['EarthKingdoms', 'EarthKingdoms-dev']) {
-    const modsDir = join(basePath, instance, 'mods')
-    if (existsSync(modsDir)) {
-      try { rmSync(modsDir, { recursive: true, force: true }); removed++ } catch { /* ignore */ }
-    }
+  const modsDir = join(instanceDir(), 'mods')
+  if (existsSync(modsDir)) {
+    try { rmSync(modsDir, { recursive: true, force: true }); removed++ } catch { /* ignore */ }
   }
   wlog(`Réparation : dossiers mods supprimés (${removed})`)
   return { ok: true }
@@ -833,8 +825,8 @@ ipcMain.handle('system:setStartupEnabled', (_e, enabled: boolean) => {
 // ── Logs ─────────────────────────────────────────────────────────────────────
 ipcMain.handle('logs:getAll',  () => [...logBuffer])
 ipcMain.handle('logs:openDir', () => {
-  // Les logs Minecraft sont dans basePath/instances/EarthKingdoms/logs/
-  shell.openPath(join(app.getPath('userData'), 'EarthKingdoms', 'instances', 'EarthKingdoms', 'logs'))
+  // Les logs Minecraft sont dans <gameRoot>/instances/<instance>/logs/
+  shell.openPath(join(instanceDir(), 'logs'))
 })
 
 // ── Mods optionnels ───────────────────────────────────────────────────────────
