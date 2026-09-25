@@ -483,7 +483,7 @@ export default function App() {
             />
           )}
           {page === 'logs'       && <LogsPage />}
-          {page === 'mods'       && <ModsPage />}
+          {page === 'mods'       && <ModsPage canBeta={account!.canAccessDevServer} />}
           {page === 'patchnotes' && <PatchNotesPage />}
           {page === 'dynmap'     && <DynmapPage />}
           {page === 'shop'       && <ShopPage />}

@@ -60,7 +60,7 @@ contextBridge.exposeInMainWorld('api', {
   updateCheck: () => ipcRenderer.invoke('update:check'),
 
   // Mods optionnels
-  modsGetOptional: () => ipcRenderer.invoke('mods:getOptional'),
+  modsGetOptional: (dev?: boolean) => ipcRenderer.invoke('mods:getOptional', dev),
   modsGetEnabled:  () => ipcRenderer.invoke('mods:getEnabled'),
   modsSetEnabled:  (paths: string[]) => ipcRenderer.invoke('mods:setEnabled', paths),
 
@@ -81,7 +81,8 @@ contextBridge.exposeInMainWorld('api', {
   bugCaptureScreen: () => ipcRenderer.invoke('bug:captureScreen'),
 
   // Profils de lancement
-  profilesList:      ()                                => ipcRenderer.invoke('profiles:list'),
+  profilesSetChannel: (beta: boolean)                  => ipcRenderer.invoke('profiles:setChannel', beta),
+  profilesList:      ()                              => ipcRenderer.invoke('profiles:list'),
   profilesUpdate:    (patch: unknown)                  => ipcRenderer.invoke('profiles:update', patch),
   profilesCreate:    (name: string, sourceId: string)  => ipcRenderer.invoke('profiles:create', name, sourceId),
   profilesRename:    (id: string, name: string)        => ipcRenderer.invoke('profiles:rename', id, name),

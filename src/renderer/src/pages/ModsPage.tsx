@@ -53,7 +53,13 @@ function formatSize(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} Mo`
 }
 
-export default function ModsPage() {
+interface Props {
+  /** Compte autorisé à jouer la beta : affiche le sélecteur de modpack. */
+  canBeta: boolean
+}
+
+export default function ModsPage({ canBeta }: Props) {
+  const [beta,    setBeta]    = useState(false)
   const [mods,    setMods]    = useState<OptionalMod[]>([])
   const [enabled, setEnabled] = useState<Set<string>>(new Set())
   const [tiers,   setTiers]   = useState<Record<string, PerfLevel>>({})
@@ -66,9 +72,14 @@ export default function ModsPage() {
   const [loading,  setLoading]  = useState(true)
 
   useEffect(() => {
+    setLoading(true)
+    setNotice(null)
+    const useBeta = canBeta && beta
+    // Le canal (profils du jeu ou de la beta) est fixé avant tout le reste :
+    // liste des profils, mods activés et catalogue en dépendent.
     // Le catalogue doit être récupéré avant les paliers : c'est modsGetOptional
     // qui met le catalogue en cache côté main, et perfModTiers le relit.
-    window.api.modsGetOptional().then(async files => {
+    window.api.profilesSetChannel(useBeta).then(() => window.api.modsGetOptional(useBeta)).then(async files => {
       setMods(files.map(f => ({ path: f.path, size: f.size, ...parseModInfo(f.path) })))
       const [enabledPaths, modTiers, list] = await Promise.all([
         window.api.modsGetEnabled(),
@@ -80,7 +91,11 @@ export default function ModsPage() {
       applyList(list)
       setLoading(false)
     }).catch(() => setLoading(false))
-  }, [])
+  }, [beta, canBeta])
+
+  // Quitter l'onglet ramène le canal sur le jeu : les paramètres et le reste du
+  // launcher éditent toujours les profils du jeu, jamais ceux de la beta par mégarde.
+  useEffect(() => () => { window.api.profilesSetChannel(false) }, [])
 
   function applyList(list: { profiles: LaunchProfile[]; activeId: string; modCounts: Record<string, number> }) {
     setProfiles(list.profiles)
@@ -144,15 +159,19 @@ export default function ModsPage() {
     })
   }
 
+  // Ne touchent que les mods du catalogue affiché : la sélection est commune aux
+  // deux modpacks, les mods de l'autre canal doivent rester tels quels.
   function enableAll() {
-    const allPaths = mods.map(m => m.path)
-    setEnabled(new Set(allPaths))
-    persist(allPaths)
+    const next = new Set([...enabled, ...mods.map(m => m.path)])
+    setEnabled(next)
+    persist([...next])
   }
 
   function disableAll() {
-    setEnabled(new Set())
-    persist([])
+    const shown = new Set(mods.map(m => m.path))
+    const next  = new Set([...enabled].filter(p => !shown.has(p)))
+    setEnabled(next)
+    persist([...next])
   }
 
   return (
@@ -161,12 +180,27 @@ export default function ModsPage() {
         <div className="mods__title-row">
           <h1 className="mods__title">Mods Optionnels</h1>
           {!loading && (
-            <span className="mods__count">{enabled.size}/{mods.length} actifs</span>
+            <span className="mods__count">
+              {mods.filter(m => enabled.has(m.path)).length}/{mods.length} actifs
+            </span>
           )}
         </div>
         <p className="mods__subtitle">
           Activés au prochain lancement - le modpack principal n'est pas modifiable ici.
         </p>
+        {canBeta && (
+          <div className="mods__profiles">
+            <span className="mods__profiles-label">Modpack</span>
+            <div className="mods__profiles-list">
+              <button className={`profile-chip ${!beta ? 'profile-chip--active' : ''}`} onClick={() => setBeta(false)}>
+                Jeu
+              </button>
+              <button className={`profile-chip ${beta ? 'profile-chip--active' : ''}`} onClick={() => setBeta(true)}>
+                Beta
+              </button>
+            </div>
+          </div>
+        )}
         {!loading && profiles.length > 0 && (
           <div className="mods__profiles">
             <span className="mods__profiles-label">Profil</span>
@@ -206,6 +240,7 @@ export default function ModsPage() {
         )}
         {profile && (
           <p className="mods__profile">
+            {canBeta && beta && 'Profils de la beta, séparés de ceux du jeu. '}
             {profile.builtin
               ? 'Palier intégré : cette liste suit le palier. Toucher un interrupteur créera un profil personnalisé.'
               : 'Profil personnalisé : cette liste lui appartient.'}

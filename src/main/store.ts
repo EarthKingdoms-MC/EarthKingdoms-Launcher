@@ -39,9 +39,45 @@ export interface LaunchProfile {
    * ce qui laisse un profil suivre le palier sur le reste.
    */
   gameOptions: Record<string, string> | null
+  /**
+   * true pour un profil de la beta. Les profils beta sont totalement séparés de
+   * ceux du jeu : chaque canal a ses paliers, ses profils perso et son profil actif.
+   */
+  beta?:     boolean
 }
 
-export const BUILTIN_PROFILE_IDS = ['perf-low', 'perf-medium', 'perf-high'] as const
+export const BUILTIN_PROFILE_IDS = [
+  'perf-low', 'perf-medium', 'perf-high',
+  'beta-perf-low', 'beta-perf-medium', 'beta-perf-high',
+] as const
+
+// Canal courant (jeu ou beta) : état volatil du process main, piloté par l'onglet
+// Mods et par le lancement. Tous les accès « profil actif » s'y réfèrent.
+let betaChannel = false
+export function setBetaChannel(beta: boolean): void { betaChannel = beta }
+export function isBetaChannel(): boolean { return betaChannel }
+
+const activeKey = (beta: boolean) =>
+  (beta ? 'activeBetaProfileId' : 'activeProfileId') as 'activeBetaProfileId' | 'activeProfileId'
+const defaultProfileId = (beta: boolean) => (beta ? 'beta-perf-medium' : 'perf-medium')
+
+/** Identifiant du palier intégré du canal courant. */
+export function builtinIdFor(level: PerfLevel, beta = betaChannel): string {
+  return `${beta ? 'beta-' : ''}perf-${level}`
+}
+
+export function getActiveProfileId(beta = betaChannel): string {
+  return (store.get(activeKey(beta)) as string) ?? defaultProfileId(beta)
+}
+export function setActiveProfileId(id: string, beta = betaChannel): void {
+  store.set(activeKey(beta), id)
+}
+export function fallbackProfileId(beta = betaChannel): string { return defaultProfileId(beta) }
+
+/** Profils du canal courant. */
+export function profilesOfChannel(beta = betaChannel): LaunchProfile[] {
+  return ((store.get('launchProfiles') as LaunchProfile[]) ?? []).filter(p => !!p.beta === beta)
+}
 
 /** Résolution de lancement associée à chaque palier - un rendu plus large coûte plus cher. */
 const BUILTIN_RES: Record<PerfLevel, { w: number; h: number }> = {
@@ -57,10 +93,11 @@ const BUILTIN_NAMES: Record<PerfLevel, string> = {
 }
 
 /** Profil intégré d'un palier, dimensionné pour la RAM physique de la machine. */
-export function builtinProfile(level: PerfLevel, totalRamGB: number): LaunchProfile {
+export function builtinProfile(level: PerfLevel, totalRamGB: number, beta = false): LaunchProfile {
   const res = BUILTIN_RES[level]
   return {
-    id:        `perf-${level}`,
+    id:        `${beta ? 'beta-' : ''}perf-${level}`,
+    beta,
     name:      BUILTIN_NAMES[level],
     ram:       recommendedRam(level, totalRamGB),
     resW:      res.w,
@@ -87,6 +124,7 @@ interface Schema {
   lastSeenNewsCount:      number
   launchProfiles:         LaunchProfile[]
   activeProfileId:        string
+  activeBetaProfileId:    string
   closeOnLaunch:          boolean
   /** Le joueur a validé (ou refusé) la proposition de palier au premier démarrage. */
   perfConfigured:         boolean
@@ -108,6 +146,7 @@ export const store = new Store<Schema>({
     lastSeenNewsCount:      0,
     launchProfiles:         [],   // rempli par migrateProfiles() au démarrage
     activeProfileId:        'perf-medium',
+    activeBetaProfileId:    'beta-perf-medium',
     closeOnLaunch:          false,
     perfConfigured:         false,
     knownOptionalMods:      [],
@@ -223,14 +262,15 @@ export function migrateProfiles(totalRamGB: number): void {
       gameOptions: p.gameOptions ?? null,
     }))
 
-  const builtins = (['low', 'medium', 'high'] as PerfLevel[]).map(level => {
-    const existing = stored.find(p => p.id === `perf-${level}`)
+  const builtins = [false, true].flatMap(beta => (['low', 'medium', 'high'] as PerfLevel[]).map(level => {
+    const id       = `${beta ? 'beta-' : ''}perf-${level}`
+    const existing = stored.find(p => p.id === id)
     // Un profil intégré déjà présent est conservé tel quel : le joueur a pu en
     // ajuster la RAM ou la résolution depuis l'interface.
     return existing
-      ? { ...existing, builtin: true, perfLevel: level, mods: null, gameOptions: null }
-      : builtinProfile(level, totalRamGB)
-  })
+      ? { ...existing, beta, builtin: true, perfLevel: level, mods: null, gameOptions: null }
+      : builtinProfile(level, totalRamGB, beta)
+  }))
 
   const profiles = [...builtins, ...customs]
   store.set('launchProfiles', profiles)
@@ -243,13 +283,16 @@ export function migrateProfiles(totalRamGB: number): void {
     const fallback = customs.find(p => p.id === 'default') ?? null
     store.set('activeProfileId', fallback ? fallback.id : 'perf-medium')
   }
+  if (!profiles.some(p => p.id === (store.get('activeBetaProfileId') as string) && p.beta)) {
+    store.set('activeBetaProfileId', 'beta-perf-medium')
+  }
 }
 
 /** Profil de lancement actif. Ne renvoie jamais null : replie sur Moyen. */
 export function getActiveProfile(): LaunchProfile {
-  const profiles = (store.get('launchProfiles') as LaunchProfile[]) ?? []
-  const activeId = store.get('activeProfileId') as string
+  const profiles = profilesOfChannel()
+  const activeId = getActiveProfileId()
   return profiles.find(p => p.id === activeId)
-    ?? profiles.find(p => p.id === 'perf-medium')
-    ?? builtinProfile('medium', 8)
+    ?? profiles.find(p => p.id === fallbackProfileId())
+    ?? builtinProfile('medium', 8, betaChannel)
 }

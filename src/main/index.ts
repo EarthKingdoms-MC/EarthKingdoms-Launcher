@@ -8,7 +8,11 @@ import { appendFileSync, mkdirSync, readdirSync, statSync, unlinkSync, rmSync, e
 import { totalmem } from 'os'
 import { request as httpsRequest } from 'https'
 import { randomUUID } from 'crypto'
-import { store, migrateProfiles, getActiveProfile, BUILTIN_PROFILE_IDS } from './store'
+import {
+  store, migrateProfiles, getActiveProfile, BUILTIN_PROFILE_IDS,
+  setBetaChannel, isBetaChannel, builtinIdFor, getActiveProfileId, setActiveProfileId,
+  fallbackProfileId, profilesOfChannel,
+} from './store'
 import {
   modsForLevel, modTier, applyGameOptions, gameOptionsFor, EDITABLE_GAME_KEYS,
   LEVEL_LABELS, LEVEL_DESCS, PERF_LEVELS, isPerfLevel, recommendedRam,
@@ -450,13 +454,16 @@ interface CatalogueEntry { url: string; size: number; hash: string; path: string
  * mods existent, donc pas lesquels activer. Il est donc rafraîchi au démarrage
  * et avant chaque lancement, pas seulement à l'ouverture de l'onglet Mods.
  */
-async function fetchModCatalogue(): Promise<CatalogueEntry[]> {
+async function fetchModCatalogue(dev = false): Promise<CatalogueEntry[]> {
   try {
     const account = getActiveAccount()
     const headers: Record<string, string> = {}
     if (account?.token) headers['Authorization'] = `Bearer ${account.token}`
 
-    const res = await ekFetch('https://earthkingdoms-mc.fr/launcher/files/?instance=EarthKingdomsV4-beta', { headers })
+    // La beta a son propre modpack côté serveur (voir launcherCore.filesInstance) :
+    // son catalogue diffère de celui de la prod.
+    const instance = dev ? 'EarthKingdomsV4-beta-dev' : 'EarthKingdomsV4-beta'
+    const res = await ekFetch(`https://earthkingdoms-mc.fr/launcher/files/?instance=${instance}`, { headers })
     if (!res.ok) return []
     const data = await res.json() as CatalogueEntry[]
 
@@ -536,7 +543,7 @@ function nextCustomName(profiles: LaunchProfile[]): string {
  */
 function updateActiveProfile(patch: Partial<LaunchProfile>): { profile: LaunchProfile; created: boolean } {
   const active   = getActiveProfile()
-  const profiles = (store.get('launchProfiles') as LaunchProfile[]) ?? []
+  const profiles = profilesOfChannel()
 
   if (!active.builtin) {
     const updated = { ...active, ...patch, id: active.id, builtin: false }
@@ -551,12 +558,13 @@ function updateActiveProfile(patch: Partial<LaunchProfile>): { profile: LaunchPr
     id:      newProfileId(),
     name:    nextCustomName(profiles),
     builtin: false,
+    beta:    isBetaChannel(),
     // Le profil dérivé fige ce que le joueur avait sous les yeux : sans ça, sa
     // liste de mods bougerait au prochain rafraîchissement du catalogue.
     mods:    patch.mods ?? effectiveMods(active),
   }
   saveProfile(derived)
-  store.set('activeProfileId', derived.id)
+  setActiveProfileId(derived.id)
   applyActiveProfile()
   wlog(`Profil « ${derived.name} » créé depuis le palier ${active.perfLevel}`)
   return { profile: derived, created: true }
@@ -586,7 +594,7 @@ ipcMain.handle('perf:needsSetup', () => !(store.get('perfConfigured') as boolean
 /** Le joueur accepte un palier : il devient le profil actif. */
 ipcMain.handle('perf:chooseLevel', (_e, level: string) => {
   if (!isPerfLevel(level)) return { ok: false }
-  store.set('activeProfileId', `perf-${level}`)
+  setActiveProfileId(builtinIdFor(level))
   store.set('perfConfigured', true)
   const profile = applyActiveProfile()
   wlog(`Palier choisi : ${level} (RAM ${profile.ram} Go, ${effectiveMods(profile).length} mods optionnels)`)
@@ -703,7 +711,7 @@ ipcMain.handle('launch:start', async (_e, dev?: boolean) => {
   // indépendants, pas besoin de payer deux allers-retours réseau à la suite
   // avant de démarrer la JVM. fetchModCatalogue() avale déjà ses propres
   // erreurs (retourne [] en cas d'échec), donc rien à catcher ici.
-  const catalogueFetch = fetchModCatalogue()
+  const catalogueFetch = fetchModCatalogue(dev === true)
 
   // GameAuthToken : preuve courte durée (~90s) que le Web autorise CE lancement,
   // demandée au dernier moment (pas au login). Si le Web est injoignable ou
@@ -720,7 +728,13 @@ ipcMain.handle('launch:start', async (_e, dev?: boolean) => {
   }
 
   await catalogueFetch
+  // Le lancement utilise les profils de son propre canal, quel que soit celui
+  // affiché dans l'onglet Mods ; les clés globales lues par launcherCore (mods,
+  // RAM…) sont donc recalculées pour ce canal avant de démarrer.
+  const previousChannel = isBetaChannel()
+  setBetaChannel(dev === true)
   const profile = applyActiveProfile()
+  setBetaChannel(previousChannel)
 
   wlog(`Launch: démarrage - user=${account.username} profil=${profile.name} palier=${profile.perfLevel} ram=${profile.ram}Go java=${profile.javaPath ?? 'embarqué'}${dev ? ' [DEV]' : ''}`)
   logBuffer.length = 0  // vide le buffer au nouveau lancement
@@ -830,11 +844,9 @@ ipcMain.handle('logs:openDir', () => {
 })
 
 // ── Mods optionnels ───────────────────────────────────────────────────────────
-ipcMain.handle('mods:getOptional', () => fetchModCatalogue())
+ipcMain.handle('mods:getOptional', (_e, dev?: boolean) => fetchModCatalogue(dev === true))
 
-ipcMain.handle('mods:getEnabled', () => {
-  return (store.get('enabledOptionalMods') as string[]) ?? []
-})
+ipcMain.handle('mods:getEnabled', () => effectiveMods(getActiveProfile()))
 
 /**
  * Enregistre une sélection manuelle de mods.
@@ -878,9 +890,19 @@ ipcMain.handle('patchnotes:load', async () => {
 })
 
 // ── Profils de lancement ──────────────────────────────────────────────────────
+/**
+ * Bascule le canal (jeu / beta) dont les profils sont exposés. Piloté par le
+ * sélecteur de l'onglet Mods ; le lancement fixe lui-même son canal.
+ */
+ipcMain.handle('profiles:setChannel', (_e, beta: boolean) => {
+  setBetaChannel(beta === true)
+  // Pendant un lancement, les clés globales appartiennent au canal lancé.
+  if (!isRunning()) applyActiveProfile()
+})
+
 ipcMain.handle('profiles:list', () => {
-  const profiles = (store.get('launchProfiles') as LaunchProfile[]) ?? []
-  const activeId = (store.get('activeProfileId') as string) ?? 'perf-medium'
+  const profiles = profilesOfChannel()
+  const activeId = getActiveProfileId()
   // Nombre de mods réellement actifs par profil - affiché dans le sélecteur.
   const modCounts = Object.fromEntries(profiles.map(p => [p.id, effectiveMods(p).length]))
   return { profiles, activeId, modCounts }
@@ -913,19 +935,20 @@ ipcMain.handle('profiles:rename', (_e, id: string, name: string) => {
  * intégré) et l'active. C'est le seul chemin pour obtenir un profil modifiable.
  */
 ipcMain.handle('profiles:create', (_e, name: string, sourceId: string) => {
-  const profiles = (store.get('launchProfiles') as LaunchProfile[]) ?? []
+  const profiles = profilesOfChannel()
   const source   = profiles.find(p => p.id === sourceId) ?? getActiveProfile()
   const created: LaunchProfile = {
     ...source,
     id:      newProfileId(),
     name:    name.trim() || nextCustomName(profiles),
     builtin: false,
+    beta:    isBetaChannel(),
     // Fige la sélection courante du profil source : le profil perso part de ce
     // que le joueur voyait, et ne bougera plus tout seul.
     mods:    effectiveMods(source),
   }
   saveProfile(created)
-  store.set('activeProfileId', created.id)
+  setActiveProfileId(created.id)
   applyActiveProfile()
   return created
 })
@@ -935,8 +958,8 @@ ipcMain.handle('profiles:delete', (_e, id: string) => {
   if ((BUILTIN_PROFILE_IDS as readonly string[]).includes(id)) return
   const profiles = ((store.get('launchProfiles') as LaunchProfile[]) ?? []).filter(p => p.id !== id)
   store.set('launchProfiles', profiles)
-  if ((store.get('activeProfileId') as string) === id) {
-    store.set('activeProfileId', 'perf-medium')
+  if (getActiveProfileId() === id) {
+    setActiveProfileId(fallbackProfileId())
     applyActiveProfile()
   }
 })
@@ -951,11 +974,13 @@ ipcMain.handle('profiles:reset', (_e, id: string, what: 'mods' | 'gameOptions' |
     mods:        what === 'gameOptions' ? profile.mods        : null,
     gameOptions: what === 'mods'        ? profile.gameOptions : null,
   })
-  if ((store.get('activeProfileId') as string) === id) applyActiveProfile()
+  if (getActiveProfileId() === id) applyActiveProfile()
 })
 
 ipcMain.handle('profiles:setActive', (_e, id: string) => {
-  store.set('activeProfileId', id)
+  // Refuse un profil de l'autre canal : il ne serait pas listé ni appliqué.
+  if (!profilesOfChannel().some(p => p.id === id)) return applyActiveProfile()
+  setActiveProfileId(id)
   return applyActiveProfile()
 })
 

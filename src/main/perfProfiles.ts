@@ -62,6 +62,11 @@ const MOD_TIERS: Record<string, PerfLevel> = {
   'gpumemleakfix':              'low',  // corrige une fuite mémoire GPU
   'fastpaintings':              'low',  // rendu des tableaux
   'fastquit':                   'low',  // fermeture du monde en arrière-plan
+  'forgematica':                'low',  // schématiques (beta) - placé en Faible à la demande du porteur du projet
+  'entityculling':              'low',  // ne rend pas les entités hors de vue
+  'dynamic-fps':                'low',  // réduit les FPS quand la fenêtre n'a plus le focus
+  'badoptimizations':           'low',  // optimisations diverses du rendu
+  'fastload-reforged':          'low',  // accélère le chargement du monde
 
   // ── Moyen : confort de jeu, coût négligeable ──
   'jei':                        'medium',  // liste des recettes
@@ -69,11 +74,24 @@ const MOD_TIERS: Record<string, PerfLevel> = {
   'mousetweaks':                'medium',  // manipulation d'inventaire
   'okzoomer':                   'medium',  // zoom clavier
   'notenoughanimations':        'medium',  // animations de joueur
+  'appleskin':                  'medium',  // valeurs de faim/saturation
+  'toastcontrol':               'medium',  // contrôle des notifications
+  'controlling':                'medium',  // recherche dans les raccourcis clavier
+  'searchables':                'medium',  // barres de recherche (dépendance de Controlling)
+  'fallingleaves':              'medium',  // feuilles qui tombent
+  'ambientsounds':              'medium',  // sons d'ambiance
+  'presencefootsteps':          'medium',  // bruits de pas
+  'eatinganimation':            'medium',  // animation de nourriture
+  'waveycapes':                 'medium',  // capes animées
 
   // ── Élevé : agréable mais réellement coûteux ──
   'oculus':                     'high',  // chargeur de shaders
   'journeymap':                 'high',  // minimap + cartographie (rendu continu)
   'sound-physics-remastered':   'high',  // réverbération calculée en temps réel
+  'entity_model_features':      'high',  // modèles d'entités personnalisés
+  'entity_texture_features':    'high',  // textures d'entités personnalisées
+  'betteranimationscollection': 'high',  // animations de mobs
+  'distanthorizons':            'high',  // LOD à longue portée, très gourmand
 }
 
 const UNKNOWN_MOD_TIER: PerfLevel = 'medium'

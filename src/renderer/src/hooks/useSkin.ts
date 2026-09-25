@@ -153,7 +153,7 @@ declare global {
       appVersion(): Promise<string>
       updateCheck(): Promise<{ available: boolean; macUpdate?: boolean; latestVersion?: string; downloadUrl?: string }>
 
-      modsGetOptional(): Promise<Array<{ url: string; size: number; hash: string; path: string }>>
+      modsGetOptional(dev?: boolean): Promise<Array<{ url: string; size: number; hash: string; path: string }>>
       modsGetEnabled(): Promise<string[]>
       modsSetEnabled(paths: string[]): Promise<ProfileWriteResult>
 
@@ -165,6 +165,7 @@ declare global {
       repairMods(): Promise<{ ok: boolean; error?: string; cancelled?: boolean }>
       patchnotesLoad(): Promise<string | null>
 
+      profilesSetChannel(beta: boolean): Promise<void>
       profilesList(): Promise<{ profiles: LaunchProfile[]; activeId: string; modCounts: Record<string, number> }>
       profilesUpdate(patch: Partial<LaunchProfile>): Promise<{ profile: LaunchProfile; created: boolean }>
       profilesCreate(name: string, sourceId: string): Promise<LaunchProfile>

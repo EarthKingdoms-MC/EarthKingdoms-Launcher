@@ -16,6 +16,26 @@ import { gameRoot, instanceDir as getInstanceDir, INSTANCE_NAME } from './paths'
 //                 checkFiles les supprime s'ils existaient)
 //     - Le token Bearer est envoyé au serveur : c'est lui qui décide quels
 //       fichiers modadmin/ retourner (validation côté serveur).
+const instanceDir = () => getInstanceDir(INSTANCE_NAME)
+
+/** Dossiers que le launcher a le droit de synchroniser et de nettoyer. */
+const MANAGED_DIRS = ['mods', 'config']
+const isManagedPath = (p: string | undefined) => MANAGED_DIRS.includes((p ?? '').split('/')[0])
+
+/**
+ * mc-java-core supprime de l'instance tout fichier absent du modpack et absent de
+ * `ignored`. On protège donc tout ce qui existe déjà à la racine de l'instance
+ * (options, sauvegardes, serveurs, caches de mods…) sauf mods/ et config/, seuls
+ * dossiers dont le launcher garde la maîtrise.
+ */
+function protectedEntries(): string[] {
+  try {
+    return fs.readdirSync(instanceDir()).filter(name => !MANAGED_DIRS.includes(name))
+  } catch {
+    return []  // première installation : rien à protéger
+  }
+}
+
 const _nativeFetch = global.fetch
 ;(global as any).fetch = function(input: RequestInfo | URL, init?: RequestInit) {
   if (typeof input === 'string' && input.startsWith('http://earthkingdoms-mc.fr')) {
@@ -67,6 +87,10 @@ const _nativeFetch = global.fetch
           return entry
         })
         .filter(Boolean)
+        // Seuls mods/ et config/ sont gérés par le launcher : tout autre fichier du
+        // modpack n'est téléchargé que s'il est absent, jamais réécrit par-dessus
+        // la version du joueur (options.txt, servers.dat, journeymap/…).
+        .filter(entry => isManagedPath(entry!.path) || !fs.existsSync(path.join(instanceDir(), entry!.path)))
       return new Response(JSON.stringify(transformed), {
         status: 200,
         headers: { 'content-type': 'application/json' },
@@ -218,6 +242,11 @@ export function startLaunch(
     GAME_ARGS: [],
     verify:    true,
     ignored:   [
+      ...protectedEntries(),
+      // config/ reste synchronisée avec le modpack (les fichiers listés sont mis à
+      // jour), mais n'est jamais vidée : l'instance beta ne liste aucun fichier de
+      // config, et sans ça chaque lancement beta supprimerait toute la config.
+      'config',
       // Forge génère ce fichier lui-même, le serveur renvoie une 404 HTML
       'config/fml.toml',
       // Fichiers/dossiers générés par le joueur - ne jamais supprimer
