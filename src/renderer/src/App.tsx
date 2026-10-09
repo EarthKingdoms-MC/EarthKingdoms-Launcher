@@ -9,502 +9,695 @@ import SettingsPage  from './pages/SettingsPage'
 import LogsPage      from './pages/LogsPage'
 import ModsPage      from './pages/ModsPage'
 import PatchNotesPage from './pages/PatchNotesPage'
-import DynmapPage    from './pages/DynmapPage'
+import LivemapPage    from './pages/LivemapPage'
 import ShopPage      from './pages/ShopPage'
 import PlayerStatusPage from './pages/PlayerStatusPage'
 import { Account }   from './hooks/useSkin'
 import { playClick, playPlay, playClose, setSoundEnabled } from './utils/sounds'
+import './styles/notif.css'
+import {CircleCheck, CircleX, Timer, X} from "lucide-react";
 
 // ── Error Boundary - attrape les crashes React et affiche un message lisible ─
 class ErrorBoundary extends Component<
-  { children: ReactNode },
-  { error: Error | null }
+    { children: ReactNode },
+    { error: Error | null }
 > {
-  constructor(props: { children: ReactNode }) {
-    super(props)
-    this.state = { error: null }
-  }
-  static getDerivedStateFromError(error: Error) { return { error } }
-  componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error('[ErrorBoundary]', error, info.componentStack)
-  }
-  render() {
-    if (this.state.error) {
-      return (
-        <div style={{
-          width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center', gap: 12,
-          background: 'var(--bg-main)', padding: 32,
-        }}>
-          <span style={{ fontSize: 28 }}>⚠️</span>
-          <span style={{ fontSize: 14, color: 'var(--warning)', fontWeight: 600 }}>
-            Une erreur inattendue s'est produite
-          </span>
-          <span style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', maxWidth: 480 }}>
-            {this.state.error.message}
-          </span>
-          <button
-            className="btn-secondary"
-            style={{ marginTop: 8 }}
-            onClick={() => this.setState({ error: null })}
-          >
-            Réessayer
-          </button>
-        </div>
-      )
+    constructor(props: { children: ReactNode }) {
+        super(props)
+        this.state = { error: null }
     }
-    return this.props.children
-  }
+    static getDerivedStateFromError(error: Error) { return { error } }
+    componentDidCatch(error: Error, info: ErrorInfo) {
+        console.error('[ErrorBoundary]', error, info.componentStack)
+    }
+    render() {
+        if (this.state.error) {
+            return (
+                <div style={{
+                    width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
+                    alignItems: 'center', justifyContent: 'center', gap: 12,
+                    background: 'var(--bg-main)', padding: 32,
+                }}>
+                    <span style={{ fontSize: 28 }}>⚠️</span>
+                    <span style={{ fontSize: 14, color: 'var(--warning)', fontWeight: 600 }}>
+                        Une erreur inattendue s'est produite
+                    </span>
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', maxWidth: 480 }}>
+                        {this.state.error.message}
+                    </span>
+                    <button
+                        className="btn-secondary"
+                        style={{ marginTop: 8 }}
+                        onClick={() => this.setState({ error: null })}
+                    >
+                        Réessayer
+                    </button>
+                </div>
+            )
+        }
+        return this.props.children
+    }
 }
 
-export type Page = 'home' | 'settings' | 'logs' | 'mods' | 'patchnotes' | 'dynmap' | 'shop' | 'playerstatus'
+function SplashLogo({ size = 72 }: { size?: number }) {
+    return (
+        <img
+            src="./logos/logo-72.png"
+            srcSet="./logos/logo-144.png 2x, ./logos/logo-216.png 3x"
+            alt=""
+            style={{
+                width: size,
+                height: size,
+                objectFit: 'contain',
+                opacity: 0.9,
+                filter: 'drop-shadow(0 2px 12px rgba(236,130,0,0.4))',
+            }}
+        />
+    )
+}
+
+export type Page = 'home' | 'settings' | 'logs' | 'mods' | 'patchnotes' | 'livemap' | 'shop' | 'playerstatus'
 
 type AppState = 'loading' | 'updating' | 'login' | 'app'
 
 const LOADING_MSGS = [
-  'Vérification des mises à jour…',
-  'Connexion au serveur EarthKingdoms…',
-  'Chargement des configurations…',
-  'Initialisation du launcher…',
-  'Récupération des données du jeu…',
+    'Vérification des mises à jour...',
+    'Connexion au serveur EarthKingdoms...',
+    'Chargement des configurations...',
+    'Initialisation du launcher...',
+    'Récupération des données du jeu...',
 ]
 
 export default function App() {
-  const [appState,           setAppState]          = useState<AppState>('loading')
-  const [account,            setAccount]           = useState<Account | null>(null)
-  const [accounts,           setAccounts]          = useState<Array<{ username: string; uuid: string; isAdmin: boolean }>>([])
-  const [page,               setPage]              = useState<Page>('home')
-  const [showSkinModal,      setShowSkinModal]     = useState(false)
-  const [showAddAccount,     setShowAddAccount]    = useState(false)
-  const [skinRefreshKey,     setSkinRefreshKey]    = useState(0)
-  const [ram,                setRam]               = useState(4)
-  const [resW,               setResW]              = useState(854)
-  const [resH,               setResH]              = useState(480)
-  const [javaPath,           setJavaPath]          = useState<string | null>(null)
-  const [loadingMsgIdx,      setLoadingMsgIdx]     = useState(0)
-  const [newsBadge,          setNewsBadge]         = useState(0)
-  const [lastNewsCount,      setLastNewsCount]     = useState(0)
-  const [macUpdateInfo,      setMacUpdateInfo]     = useState<{ version: string; downloadUrl: string } | null>(null)
-  const [updateProgress,     setUpdateProgress]    = useState(-1)
-  const [overrideHeadUrl,    setOverrideHeadUrl]   = useState<string | null>(null)
-  const [showPerfSetup,      setShowPerfSetup]    = useState(false)
-  const [settingsDirty,      setSettingsDirty]    = useState(false)
-  // Action retenue en attendant la réponse du joueur sur ses modifications.
-  const [blocked,            setBlocked]          = useState<{ label: string; page?: Page; close?: boolean } | null>(null)
+    const [appState,           setAppState]          = useState<AppState>('loading')
+    const [account,            setAccount]           = useState<Account | null>(null)
+    const [accounts,           setAccounts]          = useState<Array<{ username: string; uuid: string; isAdmin: boolean }>>([])
+    const [page,               setPage]              = useState<Page>('home')
+    const [showSkinModal,      setShowSkinModal]     = useState(false)
+    const [showAddAccount,     setShowAddAccount]    = useState(false)
+    const [skinRefreshKey,     setSkinRefreshKey]    = useState(0)
+    const [ram,                setRam]               = useState(4)
+    const [resW,               setResW]              = useState(854)
+    const [resH,               setResH]              = useState(480)
+    const [javaPath,           setJavaPath]          = useState<string | null>(null)
+    const [loadingMsgIdx,      setLoadingMsgIdx]     = useState(0)
+    const [newsBadge,          setNewsBadge]         = useState(0)
+    const [lastNewsCount,      setLastNewsCount]     = useState(0)
+    const [macUpdateInfo,      setMacUpdateInfo]     = useState<{ version: string; downloadUrl: string } | null>(null)
+    const [updateProgress,     setUpdateProgress]    = useState(-1)
+    const [overrideHeadUrl,    setOverrideHeadUrl]   = useState<string | null>(null)
+    const [showPerfSetup,      setShowPerfSetup]     = useState(false)
+    const [settingsDirty,      setSettingsDirty]     = useState(false)
+    // A la fermeture du jeu
+    const [playtimeToast,        setPlaytimeToast]        = useState<{ id: number; duration: string } | null>(null)
+    const [playtimeToastLeaving, setPlaytimeToastLeaving] = useState(false)
+    // A la création d'un profil de configuration
+    const [profileToast, setProfileToast] = useState<{ id: number; name: string; action: 'created' | 'deleted' } | null>(null)
+    const [profileToastLeaving, setProfileToastLeaving] = useState(false)
+    // A l'application des options de jeu
+    const [onNotifyToast, setOnNotifyToast]               = useState<{ id: number; type: 'success' | 'error'; message: string } | null>(null)
+    const [onNotifyToastLeaving, setOnNotifyToastLeaving] = useState(false)
+    // Action retenue en attendant la réponse du joueur sur ses modifications.
+    const [blocked, setBlocked] = useState<{ label: string; page?: Page; close?: boolean } | null>(null)
 
-  // Rotation des messages de chargement
-  useEffect(() => {
-    if (appState !== 'loading') return
-    const iv = setInterval(() => setLoadingMsgIdx(i => (i + 1) % LOADING_MSGS.length), 2000)
-    return () => clearInterval(iv)
-  }, [appState])
+    // Rotation des messages de chargement
+    useEffect(() => {
+        if (appState !== 'loading') return
+        const iv = setInterval(() => setLoadingMsgIdx(i => (i + 1) % LOADING_MSGS.length), 2000)
+        return () => clearInterval(iv)
+    }, [appState])
 
-  // Initialisation
-  useEffect(() => {
-    async function init() {
-      try {
-        const [updateResult] = await Promise.all([
-          (window.api as any).updateCheck() as Promise<{
-            available: boolean
-            macUpdate?: boolean
-            latestVersion?: string
-            downloadUrl?: string
-          }>,
-          new Promise(r => setTimeout(r, 1500)),
-        ])
-        if (updateResult.available) {
-          setAppState('updating')
-          return
+    // Initialisation
+    useEffect(() => {
+        async function init() {
+            try {
+                const [updateResult] = await Promise.all([
+                    (window.api as any).updateCheck() as Promise<{
+                        available: boolean
+                        macUpdate?: boolean
+                        latestVersion?: string
+                        downloadUrl?: string
+                    }>,
+                    new Promise(r => setTimeout(r, 1500)),
+                ])
+                if (updateResult.available) {
+                    setAppState('updating')
+                    return
+                }
+                if (updateResult.macUpdate && updateResult.latestVersion && updateResult.downloadUrl) {
+                    setMacUpdateInfo({ version: updateResult.latestVersion, downloadUrl: updateResult.downloadUrl })
+                }
+
+                const storedRam = await window.api.storeGet('ram')
+                if (typeof storedRam === 'number') setRam(storedRam)
+
+                const storedW = await window.api.storeGet('resolutionWidth')
+                const storedH = await window.api.storeGet('resolutionHeight')
+                if (typeof storedW === 'number') setResW(storedW)
+                if (typeof storedH === 'number') setResH(storedH)
+
+                const storedJava = await window.api.storeGet('javaPath')
+                if (typeof storedJava === 'string') setJavaPath(storedJava)
+
+                // Charger préférence sons
+                const soundOn = await window.api.storeGet('soundEnabled')
+                if (typeof soundOn === 'boolean') setSoundEnabled(soundOn)
+
+                // Proposition de palier de performance : une seule fois, tant que le
+                // joueur n'a ni choisi ni refusé.
+                try { setShowPerfSetup(await window.api.perfNeedsSetup()) } catch { /* silencieux */ }
+
+                const acc = await window.api.authGetAccount()
+                if (acc) {
+                    setAccount(acc)
+                    setAppState('app')
+                    refreshAccounts()
+                } else {
+                    setAppState('login')
+                }
+            } catch {
+                // En cas d'erreur inattendue, afficher la page de login plutôt que rester bloqué
+                setAppState('login')
+            }
         }
-        if (updateResult.macUpdate && updateResult.latestVersion && updateResult.downloadUrl) {
-          setMacUpdateInfo({ version: updateResult.latestVersion, downloadUrl: updateResult.downloadUrl })
+        init()
+    }, [])
+
+    // Badge news
+    useEffect(() => {
+        if (appState !== 'app') return
+        async function checkNews() {
+            try {
+                const [html, lastSeen] = await Promise.all([
+                    window.api.newsLoad(),
+                    window.api.storeGet('lastSeenNewsCount'),
+                ])
+                if (!html) return
+                const doc   = new DOMParser().parseFromString(html, 'text/html')
+                const count = doc.querySelectorAll('.news-card, .card').length
+                setLastNewsCount(count)
+                const seen = typeof lastSeen === 'number' ? lastSeen : 0
+                if (count > seen) setNewsBadge(count - seen)
+            } catch { /* empty */ }
         }
+        checkNews()
+    }, [appState])
 
-        const storedRam = await window.api.storeGet('ram')
-        if (typeof storedRam === 'number') setRam(storedRam)
+    // Progression téléchargement de la mise à jour
+    useEffect(() => {
+        if (appState !== 'updating') return
+        const onProgress = (pct: number) => setUpdateProgress(pct)
+        window.api.on('update:progress', onProgress as (a: unknown) => void)
+        return () => window.api.off('update:progress', onProgress as (a: unknown) => void)
+    }, [appState])
 
-        const storedW = await window.api.storeGet('resolutionWidth')
-        const storedH = await window.api.storeGet('resolutionHeight')
-        if (typeof storedW === 'number') setResW(storedW)
-        if (typeof storedH === 'number') setResH(storedH)
+    // Prévient le main process : tant que ce drapeau est faux, la fenêtre se
+    // ferme normalement. On n'intercepte donc jamais une fermeture pour rien.
+    useEffect(() => {
+        window.api.unsavedGuard(settingsDirty)
+    }, [settingsDirty])
 
-        const storedJava = await window.api.storeGet('javaPath')
-        if (typeof storedJava === 'string') setJavaPath(storedJava)
+    // Le main a intercepté la fermeture et attend une réponse.
+    useEffect(() => {
+        const onBeforeClose = () => {
+            if (!settingsDirty) { window.api.closeResponse(true); return }
+            setBlocked({ label: 'Fermer le launcher les abandonnera.', close: true })
+        }
+        window.api.on('app:before-close', onBeforeClose as (a: unknown) => void)
+        return () => window.api.off('app:before-close', onBeforeClose as (a: unknown) => void)
+    }, [settingsDirty])
 
-        // Charger préférence sons
-        const soundOn = await window.api.storeGet('soundEnabled')
-        if (typeof soundOn === 'boolean') setSoundEnabled(soundOn)
+    // A la fermeture de MC -> notif 6 sec du temps de jeu
+    useEffect(() => {
+        if (appState !== 'app') return
+        const onClose = (data: { code: number; duration?: string }) => {
+            playClose()
+            setPlaytimeToastLeaving(false)
+            setPlaytimeToast({ id: Date.now(), duration: data?.duration ?? '?' })
+        }
+        window.api.on('launch:close', onClose as (a: unknown) => void)
+        return () => window.api.off('launch:close', onClose as (a: unknown) => void)
+    }, [appState])
+    // Après 6 secondes, le toast commence sa sortie
+    useEffect(() => {
+        if (!playtimeToast) return
+        const t = setTimeout(() => setPlaytimeToastLeaving(true), 6000)
+        return () => clearTimeout(t)
+    }, [playtimeToast])
+    // Une fois l'animation de sortie jouée (280 ms), on le retire vraiment
+    useEffect(() => {
+        if (!playtimeToastLeaving) return
+        const t = setTimeout(() => { setPlaytimeToast(null); setPlaytimeToastLeaving(false) }, 280)
+        return () => clearTimeout(t)
+    }, [playtimeToastLeaving])
 
-        // Proposition de palier de performance : une seule fois, tant que le
-        // joueur n'a ni choisi ni refusé.
-        try { setShowPerfSetup(await window.api.perfNeedsSetup()) } catch { /* silencieux */ }
+    // A la création d'un profil de configuration -> notif 6 sec
+    useEffect(() => {
+        if (!profileToast) return
+        const t = setTimeout(() => setProfileToastLeaving(true), 6000)
+        return () => clearTimeout(t)
+    }, [profileToast])
+    useEffect(() => {
+        if (!profileToastLeaving) return
+        const t = setTimeout(() => {
+            setProfileToast(null)
+            setProfileToastLeaving(false)
+        }, 280)
+        return () => clearTimeout(t)
+    }, [profileToastLeaving])
 
-        const acc = await window.api.authGetAccount()
-        if (acc) {
-          setAccount(acc)
-          setAppState('app')
-          refreshAccounts()
+    // A l'application des options de jeu -> notif 6 sec
+    useEffect(() => {
+        if (!onNotifyToast) return
+
+        const t = setTimeout(() => setOnNotifyToastLeaving(true), 6000)
+        return () => clearTimeout(t)
+    }, [onNotifyToast])
+    useEffect(() => {
+        if (!onNotifyToastLeaving) return
+
+        const t = setTimeout(() => {
+            setOnNotifyToast(null)
+            setOnNotifyToastLeaving(false)
+        }, 280)
+
+        return () => clearTimeout(t)
+    }, [onNotifyToastLeaving])
+
+    // Listener global sons sur tous les boutons
+    useEffect(() => {
+        if (appState !== 'app') return
+        const handler = (e: MouseEvent) => {
+            try {
+                const btn = (e.target as Element).closest('button')
+                if (!btn) return
+                const sound = btn.getAttribute('data-sound')
+                if (sound === 'play')  playPlay()
+                else if (sound === 'close') playClose()
+                else playClick()
+            } catch { /* son désactivé silencieusement */ }
+        }
+        document.addEventListener('click', handler, true)
+        return () => document.removeEventListener('click', handler, true)
+    }, [appState])
+
+    async function refreshAccounts() {
+        try {
+            const list = await window.api.authGetAccounts()
+            setAccounts(list)
+        } catch { /* empty */ }
+    }
+
+    function handleLogin(acc: Account) {
+        setAccount(acc)
+        setAppState('app')
+        setShowAddAccount(false)
+        refreshAccounts()
+    }
+
+    async function handleLogout() {
+        await window.api.authLogout()
+        setOverrideHeadUrl(null)
+        setSettingsDirty(false)
+
+        const next = await window.api.authGetAccount()
+        if (next) {
+            setAccount(next)
+            setSkinRefreshKey(k => k + 1)
+            await refreshAccounts()
+            doNavigate('home')
         } else {
-          setAppState('login')
+            setAccount(null)
+            setAccounts([])
+            setPage('home')
+            setAppState('login')
         }
-      } catch {
-        // En cas d'erreur inattendue, afficher la page de login plutôt que rester bloqué
-        setAppState('login')
-      }
     }
-    init()
-  }, [])
 
-  // Badge news
-  useEffect(() => {
-    if (appState !== 'app') return
-    async function checkNews() {
-      try {
-        const [html, lastSeen] = await Promise.all([
-          window.api.newsLoad(),
-          window.api.storeGet('lastSeenNewsCount'),
-        ])
-        if (!html) return
-        const doc   = new DOMParser().parseFromString(html, 'text/html')
-        const count = doc.querySelectorAll('.news-card, .card').length
-        setLastNewsCount(count)
-        const seen = typeof lastSeen === 'number' ? lastSeen : 0
-        if (count > seen) setNewsBadge(count - seen)
-      } catch { }
+    /** Le compte a déjà été retiré côté main (reset token) : on resynchronise l'UI. */
+    async function handleSessionLost() {
+        const acc = await window.api.authGetAccount()
+        if (acc) { setAccount(acc); refreshAccounts() }
+        else { setAccount(null); setAccounts([]); setAppState('login') }
     }
-    checkNews()
-  }, [appState])
 
-  // Progression téléchargement de la mise à jour
-  useEffect(() => {
-    if (appState !== 'updating') return
-    const onProgress = (pct: number) => setUpdateProgress(pct)
-    window.api.on('update:progress', onProgress as (a: unknown) => void)
-    return () => window.api.off('update:progress', onProgress as (a: unknown) => void)
-  }, [appState])
-
-  // Prévient le main process : tant que ce drapeau est faux, la fenêtre se
-  // ferme normalement. On n'intercepte donc jamais une fermeture pour rien.
-  useEffect(() => {
-    window.api.unsavedGuard(settingsDirty)
-  }, [settingsDirty])
-
-  // Le main a intercepté la fermeture et attend une réponse.
-  useEffect(() => {
-    const onBeforeClose = () => {
-      if (!settingsDirty) { window.api.closeResponse(true); return }
-      setBlocked({ label: 'Fermer le launcher les abandonnera.', close: true })
+    async function handleSwitchAccount(uuid: string) {
+        setOverrideHeadUrl(null)
+        const result = await window.api.authSwitchAccount(uuid)
+        if (result.ok && result.account) {
+            setAccount(result.account)
+            setSkinRefreshKey(k => k + 1)
+            handleNavigate('home')
+        }
     }
-    window.api.on('app:before-close', onBeforeClose as (a: unknown) => void)
-    return () => window.api.off('app:before-close', onBeforeClose as (a: unknown) => void)
-  }, [settingsDirty])
 
-  // Son de fermeture MC
-  useEffect(() => {
-    if (appState !== 'app') return
-    const onClose = () => playClose()
-    window.api.on('launch:close', onClose as (a: unknown) => void)
-    return () => window.api.off('launch:close', onClose as (a: unknown) => void)
-  }, [appState])
-
-  // Listener global sons sur tous les boutons
-  useEffect(() => {
-    if (appState !== 'app') return
-    const handler = (e: MouseEvent) => {
-      try {
-        const btn = (e.target as Element).closest('button')
-        if (!btn) return
-        const sound = btn.getAttribute('data-sound')
-        if (sound === 'play')  playPlay()
-        else if (sound === 'close') playClose()
-        else playClick()
-      } catch { /* son désactivé silencieusement */ }
+    async function handleRemoveAccount(uuid: string) {
+        const result = await window.api.authRemoveAccount(uuid)
+        await refreshAccounts()
+        if (result.nextAccount) {
+            setAccount(result.nextAccount)
+            setSkinRefreshKey(k => k + 1)
+        } else if (!result.nextAccount) {
+            // Plus aucun compte → page de login
+            setAccount(null)
+            setAppState('login')
+        }
     }
-    document.addEventListener('click', handler, true)
-    return () => document.removeEventListener('click', handler, true)
-  }, [appState])
 
-  async function refreshAccounts() {
-    try {
-      const list = await window.api.authGetAccounts()
-      setAccounts(list)
-    } catch { }
-  }
-
-  function handleLogin(acc: Account) {
-    setAccount(acc)
-    setAppState('app')
-    setShowAddAccount(false)
-    refreshAccounts()
-  }
-
-  async function handleLogout() {
-    await window.api.authLogout()
-    setAccount(null)
-    setAccounts([])
-    setAppState('login')
-  }
-
-  /** Le compte a déjà été retiré côté main (reset token) : on resynchronise l'UI. */
-  async function handleSessionLost() {
-    const acc = await window.api.authGetAccount()
-    if (acc) { setAccount(acc); refreshAccounts() }
-    else { setAccount(null); setAccounts([]); setAppState('login') }
-  }
-
-  async function handleSwitchAccount(uuid: string) {
-    setOverrideHeadUrl(null)
-    const result = await window.api.authSwitchAccount(uuid)
-    if (result.ok && result.account) {
-      setAccount(result.account)
-      setSkinRefreshKey(k => k + 1)
+    function handleNavigate(p: Page) {
+        // Quitter les paramètres avec des réglages en cours de modification les
+        // perdrait sans un mot : on demande d'abord.
+        if (page === 'settings' && p !== 'settings' && settingsDirty) {
+            setBlocked({ label: 'Changer d\'onglet les abandonnera.', page: p })
+            return
+        }
+        doNavigate(p)
     }
-  }
 
-  async function handleRemoveAccount(uuid: string) {
-    const result = await window.api.authRemoveAccount(uuid)
-    await refreshAccounts()
-    if (result.nextAccount) {
-      setAccount(result.nextAccount)
-      setSkinRefreshKey(k => k + 1)
-    } else if (!result.nextAccount) {
-      // Plus aucun compte → page de login
-      setAccount(null)
-      setAppState('login')
+    function doNavigate(p: Page) {
+        setPage(p)
+        if (p === 'home' && newsBadge > 0) {
+            setNewsBadge(0)
+            window.api.storeSet('lastSeenNewsCount', lastNewsCount)
+        }
     }
-  }
 
-  function handleNavigate(p: Page) {
-    // Quitter les paramètres avec des réglages en cours de modification les
-    // perdrait sans un mot : on demande d'abord.
-    if (page === 'settings' && p !== 'settings' && settingsDirty) {
-      setBlocked({ label: 'Changer d\'onglet les abandonnera.', page: p })
-      return
+    /** Réponse du joueur à la fenêtre « modifications non sauvegardées ». */
+    function resolveBlocked(proceed: boolean) {
+        const pending = blocked
+        setBlocked(null)
+        if (!pending) return
+        if (pending.close) { window.api.closeResponse(proceed); return }
+        if (proceed && pending.page) doNavigate(pending.page)
     }
-    doNavigate(p)
-  }
 
-  function doNavigate(p: Page) {
-    setPage(p)
-    if (p === 'home' && newsBadge > 0) {
-      setNewsBadge(0)
-      window.api.storeSet('lastSeenNewsCount', lastNewsCount)
+    async function handleSaveRam(v: number) {
+        setRam(v)
+        await window.api.storeSet('ram', v)
     }
-  }
 
-  /** Réponse du joueur à la fenêtre « modifications non sauvegardées ». */
-  function resolveBlocked(proceed: boolean) {
-    const pending = blocked
-    setBlocked(null)
-    if (!pending) return
-    if (pending.close) { window.api.closeResponse(proceed); return }
-    if (proceed && pending.page) doNavigate(pending.page)
-  }
-
-  async function handleSaveRam(v: number) {
-    setRam(v)
-    await window.api.storeSet('ram', v)
-  }
-
-  async function handleSaveRes(w: number, h: number) {
-    setResW(w)
-    setResH(h)
-    await window.api.storeSet('resolutionWidth', w)
-    await window.api.storeSet('resolutionHeight', h)
-  }
-
-  async function handleSaveJava(path: string | null) {
-    setJavaPath(path)
-    await window.api.storeSet('javaPath', path)
-  }
-
-  function handleSkinUploaded(textureDataUrl?: string) {
-    setSkinRefreshKey(k => k + 1)
-    if (textureDataUrl) {
-      // Calcul de la head directement depuis la texture locale - pas de round-trip serveur
-      const img = new Image()
-      img.onload = () => {
-        const cvs = document.createElement('canvas')
-        cvs.width  = 8
-        cvs.height = 8
-        const ctx = cvs.getContext('2d')!
-        ctx.imageSmoothingEnabled = false
-        ctx.drawImage(img, 8,  8, 8, 8, 0, 0, 8, 8)  // face base
-        ctx.drawImage(img, 40, 8, 8, 8, 0, 0, 8, 8)  // hat overlay
-        setOverrideHeadUrl(cvs.toDataURL())
-      }
-      img.src = textureDataUrl
-    } else {
-      setOverrideHeadUrl(null)
+    async function handleSaveRes(w: number, h: number) {
+        setResW(w)
+        setResH(h)
+        await window.api.storeSet('resolutionWidth', w)
+        await window.api.storeSet('resolutionHeight', h)
     }
-  }
 
-  // Écran de chargement initial
-  if (appState === 'loading' || appState === 'updating') {
-    return (
-      <div style={{
-        width: '100%', height: '100%',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        gap: 20, background: 'var(--bg-main)'
-      }}>
-        <img src="./logo32.png" style={{ width: 48, height: 48, imageRendering: 'pixelated', opacity: 0.8 }} alt="" />
-        <span style={{ fontSize: 14, color: 'var(--text-secondary)', letterSpacing: '0.5px' }}>
-          {appState === 'updating'
-            ? <span style={{ color: 'var(--warning)' }}>Mise à jour en cours…</span>
-            : LOADING_MSGS[loadingMsgIdx]}
-        </span>
-        {appState === 'updating' && (
-          <div style={{ width: 280, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div className={`progress-bar${updateProgress < 0 ? ' progress-bar--indeterminate' : ''}`}>
-              <div
-                className="progress-bar__fill"
-                style={{ width: updateProgress >= 0 ? `${Math.max(updateProgress, 2)}%` : '100%' }}
-              />
+    async function handleSaveJava(path: string | null) {
+        setJavaPath(path)
+        await window.api.storeSet('javaPath', path)
+    }
+
+    function handleSkinUploaded(textureDataUrl?: string) {
+        setSkinRefreshKey(k => k + 1)
+        if (textureDataUrl) {
+            // Calcul de la head directement depuis la texture locale - pas de round-trip serveur
+            const img = new Image()
+            img.onload = () => {
+                const cvs = document.createElement('canvas')
+                cvs.width  = 8
+                cvs.height = 8
+                const ctx = cvs.getContext('2d')!
+                ctx.imageSmoothingEnabled = false
+                ctx.drawImage(img, 8,  8, 8, 8, 0, 0, 8, 8)  // face base
+                ctx.drawImage(img, 40, 8, 8, 8, 0, 0, 8, 8)  // hat overlay
+                setOverrideHeadUrl(cvs.toDataURL())
+            }
+            img.src = textureDataUrl
+        } else {
+            setOverrideHeadUrl(null)
+        }
+    }
+
+    // Écran de chargement initial
+    if (appState === 'loading' || appState === 'updating') {
+        return (
+            <div style={{
+                width: '100%', height: '100%',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                gap: 20, background: 'var(--bg-main)'
+            }}>
+                <SplashLogo />
+                <span style={{ fontSize: 16, color: 'var(--text-secondary)', letterSpacing: '0.5px' }}>
+                    {appState === 'updating'
+                        ? <span style={{ color: 'var(--warning)' }}>Mise à jour en cours...</span>
+                        : LOADING_MSGS[loadingMsgIdx]}
+                </span>
+                {appState === 'updating' && (
+                    <div style={{ width: 280, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <div className={`progress-bar${updateProgress < 0 ? ' progress-bar--indeterminate' : ''}`}>
+                            <div
+                                className="progress-bar__fill"
+                                style={{ width: updateProgress >= 0 ? `${Math.max(updateProgress, 2)}%` : '100%' }}
+                            />
+                        </div>
+                        {updateProgress >= 0 && (
+                            <span style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', letterSpacing: '0.3px' }}>
+                                {updateProgress}%
+                            </span>
+                        )}
+                    </div>
+                )}
             </div>
-            {updateProgress >= 0 && (
-              <span style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', letterSpacing: '0.3px' }}>
-                {updateProgress}%
-              </span>
-            )}
-          </div>
-        )}
-      </div>
-    )
-  }
+        )
+    }
 
-  // Écran mise à jour macOS - informer + lien DMG, dismissable
-  if (macUpdateInfo) {
+    // Écran mise à jour macOS - informer + lien DMG, dismissable
+    if (macUpdateInfo) {
+        return (
+            <div style={{
+                width: '100%', height: '100%',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                gap: 20, background: 'var(--bg-main)',
+            }}>
+                <SplashLogo />
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', letterSpacing: '0.3px' }}>
+                        Mise à jour disponible
+                    </span>
+                    <span style={{ fontSize: 13, color: 'var(--accent-orange)', fontWeight: 600 }}>
+                        v{macUpdateInfo.version}
+                    </span>
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', maxWidth: 380, lineHeight: 1.6 }}>
+                        Une nouvelle version est disponible. Télécharge le fichier <strong>.dmg</strong> et installe-le pour mettre à jour.
+                    </span>
+                </div>
+                <div style={{ display: 'flex', gap: 10 }}>
+                    <button
+                        className="btn-primary"
+                        onClick={() => window.api.openExternal(macUpdateInfo.downloadUrl)}
+                    >
+                        Télécharger v{macUpdateInfo.version}
+                    </button>
+                    <button
+                        className="btn-secondary"
+                        onClick={() => setMacUpdateInfo(null)}
+                    >
+                        Plus tard
+                    </button>
+                </div>
+            </div>
+        )
+    }
+
+    // Modal "Ajouter un compte" (overlay par-dessus l'app)
+    if (showAddAccount) {
+        const closeAddAccount = () => setShowAddAccount(false)
+        return (
+            <div
+                className="app"
+                style={{ position: 'relative' }}
+                onKeyDown={e => { if (e.key === 'Escape') closeAddAccount() }}
+                tabIndex={-1}
+            >
+                <div style={{
+                    position: 'absolute', inset: 0, zIndex: 200,
+                    background: 'rgba(13,13,24,0.97)',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                }}>
+                    <LoginPage onLogin={handleLogin} onBack={closeAddAccount} />
+                </div>
+            </div>
+        )
+    }
+
+    // Page de connexion principale
+    if (appState === 'login') {
+        return <LoginPage onLogin={handleLogin} />
+    }
+
     return (
-      <div style={{
-        width: '100%', height: '100%',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        gap: 20, background: 'var(--bg-main)',
-      }}>
-        <img src="./logo32.png" style={{ width: 48, height: 48, imageRendering: 'pixelated', opacity: 0.8 }} alt="" />
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', letterSpacing: '0.3px' }}>
-            Mise à jour disponible
-          </span>
-          <span style={{ fontSize: 13, color: 'var(--accent-orange)', fontWeight: 600 }}>
-            v{macUpdateInfo.version}
-          </span>
-          <span style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', maxWidth: 380, lineHeight: 1.6 }}>
-            Une nouvelle version est disponible. Télécharge le fichier <strong>.dmg</strong> et installe-le pour mettre à jour.
-          </span>
-        </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button
-            className="btn-primary"
-            onClick={() => window.api.openExternal(macUpdateInfo.downloadUrl)}
-          >
-            Télécharger v{macUpdateInfo.version}
-          </button>
-          <button
-            className="btn-secondary"
-            onClick={() => setMacUpdateInfo(null)}
-          >
-            Plus tard
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  // Modal "Ajouter un compte" (overlay par-dessus l'app)
-  if (showAddAccount) {
-    const closeAddAccount = () => setShowAddAccount(false)
-    return (
-      <div
-        className="app"
-        style={{ position: 'relative' }}
-        onKeyDown={e => { if (e.key === 'Escape') closeAddAccount() }}
-        tabIndex={-1}
-      >
-        <div style={{
-          position: 'absolute', inset: 0, zIndex: 200,
-          background: 'rgba(13,13,24,0.97)',
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        }}>
-          {/* Bouton retour - position fixe haut gauche, z-index élevé */}
-          <button
-            className="btn-secondary"
-            data-sound="close"
-            onClick={closeAddAccount}
-            style={{
-              position: 'absolute', top: 14, left: 14, zIndex: 201,
-              display: 'flex', alignItems: 'center', gap: 6,
-              fontSize: 13, padding: '6px 14px',
-            }}
-          >
-            ← Retour
-          </button>
-
-          <LoginPage onLogin={handleLogin} />
-        </div>
-      </div>
-    )
-  }
-
-  // Page de connexion principale
-  if (appState === 'login') {
-    return <LoginPage onLogin={handleLogin} />
-  }
-
-  return (
-    <div className="app">
-      <Header
-        currentPage={page}
-        onNavigate={handleNavigate}
-        username={account!.username}
-        skinRefreshKey={skinRefreshKey}
-        overrideHeadUrl={overrideHeadUrl}
-        onOpenSkin={() => setShowSkinModal(true)}
-        onLogout={handleLogout}
-        newsBadge={newsBadge}
-        accounts={accounts}
-        activeUuid={account!.uuid}
-        onSwitchAccount={handleSwitchAccount}
-        onAddAccount={() => setShowAddAccount(true)}
-        onRemoveAccount={handleRemoveAccount}
-      />
-
-      <main style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-        <ErrorBoundary key={page}>
-          {page === 'home'       && <HomePage canPlayDev={account!.canAccessDevServer} />}
-          {page === 'settings'   && (
-            <SettingsPage
-              savedRam={ram}      onSaveRam={handleSaveRam}
-              savedResW={resW}    savedResH={resH}  onSaveRes={handleSaveRes}
-              savedJavaPath={javaPath}              onSaveJava={handleSaveJava}
-              onDirtyChange={setSettingsDirty}
-              blockedAction={blocked}
-              onResolveBlocked={resolveBlocked}
-              onSessionLost={handleSessionLost}
+        <div className="app">
+            <Header
+                currentPage={page}
+                onNavigate={handleNavigate}
+                username={account!.username}
+                skinRefreshKey={skinRefreshKey}
+                overrideHeadUrl={overrideHeadUrl}
+                onOpenSkin={() => setShowSkinModal(true)}
+                onLogout={handleLogout}
+                newsBadge={newsBadge}
+                accounts={accounts}
+                activeUuid={account!.uuid}
+                onSwitchAccount={handleSwitchAccount}
+                onAddAccount={() => setShowAddAccount(true)}
+                onRemoveAccount={handleRemoveAccount}
             />
-          )}
-          {page === 'logs'       && <LogsPage />}
-          {page === 'mods'       && <ModsPage canBeta={account!.canAccessDevServer} />}
-          {page === 'patchnotes' && <PatchNotesPage />}
-          {page === 'dynmap'     && <DynmapPage />}
-          {page === 'shop'       && <ShopPage />}
-          {page === 'playerstatus' && <PlayerStatusPage />}
-        </ErrorBoundary>
-      </main>
 
-      <Footer ram={ram} />
+            <main style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+                <ErrorBoundary key={page}>
+                    {page === 'home'     && <HomePage canPlayDev={account!.canAccessDevServer} />}
+                    {page === 'settings' && (
+                        <SettingsPage
+                            savedRam={ram} onSaveRam={handleSaveRam}
+                            savedResW={resW} savedResH={resH} onSaveRes={handleSaveRes}
+                            savedJavaPath={javaPath} onSaveJava={handleSaveJava}
+                            onDirtyChange={setSettingsDirty}
+                            blockedAction={blocked}
+                            onResolveBlocked={resolveBlocked}
+                            onSessionLost={handleSessionLost}
+                            onProfileDeleted={name => {
+                                setProfileToastLeaving(false)
+                                setProfileToast({
+                                    id: Date.now(),
+                                    name,
+                                    action: 'deleted',
+                                })
+                            }}
+                            onNotify={result => {
+                                setOnNotifyToastLeaving(false)
+                                setOnNotifyToast({
+                                    id: Date.now(),
+                                    type: result.type,
+                                    message: result.message,
+                                })
+                            }}
+                        />
+                    )}
+                    {page === 'logs' && <LogsPage />}
+                    {page === 'mods' && (
+                        <ModsPage
+                            canBeta={account!.canAccessDevServer}
+                            onProfileCreated={name => {
+                                setProfileToastLeaving(false)
+                                setProfileToast({
+                                    id: Date.now(),
+                                    name,
+                                    action: 'created',
+                                })
+                            }}
+                            onOpenSettings={() => handleNavigate('settings')}
+                        />
+                    )}
+                    {page === 'patchnotes'   && <PatchNotesPage />}
+                    {page === 'livemap'      && <LivemapPage />}
+                    {page === 'shop'         && <ShopPage />}
+                    {page === 'playerstatus' && <PlayerStatusPage />}
+                </ErrorBoundary>
+            </main>
 
-      {showPerfSetup && (
-        <PerfSetupModal onDone={() => setShowPerfSetup(false)} />
-      )}
+            <Footer ram={ram} />
 
-      {showSkinModal && account && (
-        <SkinModal
-          username={account.username}
-          skinRefreshKey={skinRefreshKey}
-          onSkinUploaded={handleSkinUploaded}
-          onClose={() => setShowSkinModal(false)}
-        />
-      )}
-    </div>
-  )
+            {/* PLAYTIME NOTIF */}
+            {playtimeToast && (
+                <div key={playtimeToast.id} className={`notif${playtimeToastLeaving ? ' notif--leaving' : ''}`} role="status">
+                    <div className="notif__icon">
+                        <Timer size={20} strokeWidth={2} />
+                    </div>
+                    <div className="notif__text">
+                        <span className="notif__title">Session terminée</span>
+                        <span className="notif__sub">Temps de jeu : <strong>{playtimeToast.duration}</strong></span>
+                    </div>
+                    <button className="notif__close"
+                            onClick={() => setPlaytimeToastLeaving(true)}
+                            title="Fermer"
+                    ><X size={12} strokeWidth={2} /></button>
+                    <span className="notif__timer" />
+                </div>
+            )}
+
+            {/* SETTINGS - PROFILE CREATE/DELETE NOTIF */}
+            {profileToast && (
+                <div
+                    key={profileToast.id}
+                    className={`profile-toast profile-toast--${profileToast.action}${profileToastLeaving ? ' profile-toast--leaving' : ''}`}
+                    role="status"
+                >
+                    <div className="profile-toast__icon">
+                        <CircleCheck size={20} strokeWidth={2} />
+                    </div>
+
+                    <div className="profile-toast__text">
+                        <span className="profile-toast__title">
+                            {profileToast.action === 'created' ? 'Profil créé' : 'Profil supprimé'}
+                        </span>
+                        <span className="profile-toast__sub">
+                            {profileToast.action === 'created'
+                                ? <>« <strong>{profileToast.name}</strong> » est maintenant actif.</>
+                                : <>« <strong>{profileToast.name}</strong> » a été supprimé.</>
+                            }
+                        </span>
+                    </div>
+
+                    <button
+                        className="profile-toast__close"
+                        onClick={() => setProfileToastLeaving(true)}
+                        title="Fermer"
+                    >
+                        ✕
+                    </button>
+
+                    <span className="profile-toast__timer"/>
+                </div>
+            )}
+
+            {/* SETTINGS - GAME OPTIONS APPLIED NOTIF */}
+            {onNotifyToast && (
+                <div
+                    key={onNotifyToast.id}
+                    className={`profile-toast profile-toast--${onNotifyToast.type}${onNotifyToastLeaving ? ' profile-toast--leaving' : ''}`}
+                    role="status"
+                >
+                    <div className="profile-toast__icon">
+                        {onNotifyToast.type === 'success' ? (
+                            <CircleCheck size={20} strokeWidth={2} />
+                        ) : (
+                            <CircleX size={20} strokeWidth={2} />
+                        )}
+                    </div>
+
+                    <div className="profile-toast__text">
+                        <span className="profile-toast__title">
+                            {onNotifyToast.type === 'error' ? 'Erreur' : 'Notification'}
+                        </span>
+
+                        <span className="profile-toast__sub">
+                            {onNotifyToast.message}
+                        </span>
+                    </div>
+
+                    <button
+                        className="profile-toast__close"
+                        onClick={() => setOnNotifyToastLeaving(true)}
+                        title="Fermer"
+                    ><X size={12} strokeWidth={2} /></button>
+
+                    <span className="profile-toast__timer"/>
+                </div>
+            )}
+
+            {showPerfSetup && (
+                <PerfSetupModal onDone={() => setShowPerfSetup(false)} />
+            )}
+
+            {showSkinModal && account && (
+                <SkinModal
+                    username={account.username}
+                    skinRefreshKey={skinRefreshKey}
+                    onSkinUploaded={handleSkinUploaded}
+                    onClose={() => setShowSkinModal(false)}
+                />
+            )}
+        </div>
+    )
 }

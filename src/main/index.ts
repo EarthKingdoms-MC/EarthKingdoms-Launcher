@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, net, shell, Notification } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, net, shell } from 'electron'
 import { join }    from 'path'
 import { gameRoot, instanceDir, migrateLegacyGameRoot, INSTANCE_NAME } from './paths'
 
@@ -161,7 +161,7 @@ app.whenReady().then(() => {
       mainWindow?.webContents.send('update:progress', Math.round(p.percent))
     })
     autoUpdater.on('update-downloaded',  (info) => {
-      wlog(`Mise à jour téléchargée : ${(info as any)?.version ?? '?'} - redémarrage…`)
+      wlog(`Mise à jour téléchargée : ${(info as any)?.version ?? '?'} - redémarrage...`)
       stopLaunch()
       allowClose()
       setTimeout(() => autoUpdater.quitAndInstall(true, true), 500)
@@ -372,7 +372,7 @@ ipcMain.handle('skin:historyRestore', async (_e, historyId: string) => {
     wlog(`SkinHistory: restore ${historyId} - HTTP ${res.status}`)
     if (res.ok) return { ok: true }
     let msg = `Erreur serveur (${res.status})`
-    try { msg = (await res.json() as { error?: string }).error ?? msg } catch {}
+    try { msg = (await res.json() as { error?: string }).error ?? msg } catch { /* empty */ }
     return { ok: false, error: msg }
   } catch {
     return { ok: false, error: 'Erreur réseau.' }
@@ -381,7 +381,7 @@ ipcMain.handle('skin:historyRestore', async (_e, historyId: string) => {
 
 ipcMain.handle('skin:upload', async (_e, fileData: number[]) => {
   const account = getActiveAccount()
-  if (!account) return { ok: false, error: 'Non connecté. Reconnecte-toi dans le launcher.' }
+  if (!account) return { ok: false, error: 'Non connecté ! Reconnecte-toi dans le launcher.' }
 
   const now = Math.floor(Date.now() / 1000)
   wlog(`Skin: user=${account.username} token=${account.token?.slice(0, 10)}... expires=${account.tokenExpires} (dans ${account.tokenExpires - now}s)`)
@@ -675,20 +675,6 @@ ipcMain.handle('perf:applyGameOptions', async () => {
     return { ok: true, applied: 0 }
   }
 
-  if (mainWindow) {
-    const { response } = await dialog.showMessageBox(mainWindow, {
-      type: 'question',
-      buttons: ['Annuler', 'Appliquer'],
-      defaultId: 1,
-      cancelId: 0,
-      title: 'Réglages graphiques',
-      message: `Appliquer les réglages graphiques de « ${profile.name} » au jeu ?`,
-      detail: 'Distance d\'affichage, particules, nuages, ombres et mipmaps sont remplacés. '
-            + 'Tes raccourcis clavier, volumes et autres réglages ne sont pas touchés.',
-    })
-    if (response !== 1) return { ok: false, cancelled: true }
-  }
-
   let applied = 0
   for (const name of existing) {
     if (applyGameOptions(instanceDir(name), level, profile.gameOptions)) applied++
@@ -767,15 +753,9 @@ ipcMain.handle('launch:start', async (_e, dev?: boolean) => {
       const m        = totalMin % 60
       const timeStr  = h > 0 ? `${h}h ${m}min` : `${totalMin}min`
       wlog(`Launch: fermé - code=${code} - durée=${timeStr}`)
-      mainWindow?.webContents.send('launch:close', { code })
+      mainWindow?.webContents.send('launch:close', { code, duration: timeStr })
       mainWindow?.webContents.send('launch:state', { running: false })
       if (mainWindow?.isMinimized()) { mainWindow.restore(); mainWindow.focus() }
-      if (Notification.isSupported()) {
-        new Notification({
-          title: 'EarthKingdoms',
-          body:  `Minecraft fermé · Temps de jeu : ${timeStr}`,
-        }).show()
-      }
     },
 
     (message) => {

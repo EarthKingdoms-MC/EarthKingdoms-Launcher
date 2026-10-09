@@ -1,132 +1,164 @@
 .login {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--bg-main);
-  overflow: hidden;
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-main);
+    overflow: hidden;
 }
 
 /* Barre de titre avec contrôles fenêtre */
 .login__titlebar {
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  z-index: 10;
-  -webkit-app-region: drag;
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 50px;
+    padding: 0 10px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    z-index: 10;
+    -webkit-app-region: drag;
 }
 .login__titlebar-controls {
-  display: flex;
-  -webkit-app-region: no-drag;
+    display: flex;
+    gap: 2px;
+    margin-left: auto;
+    -webkit-app-region: no-drag;
 }
+.login__back {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 14px 0 10px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-muted);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: border-color 180ms, background 180ms, color 180ms;
+    -webkit-app-region: no-drag;
+}
+.login__back svg { transition: transform 180ms; }
+.login__back:hover {
+    border-color: rgba(236,130,0,0.5);
+    background: rgba(255,255,255,0.07);
+    color: var(--text);
+}
+.login__back:hover svg { transform: translateX(-2px); }
 .login__titlebar-btn {
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  width: 36px;
-  height: 36px;
-  font-size: 20px;
-  cursor: pointer;
-  transition: background 150ms, color 150ms;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 150ms, color 150ms;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
+.login__titlebar-btn svg { display: block; pointer-events: none; }
 .login__titlebar-btn:hover { background: rgba(255,255,255,0.07); color: var(--text); }
 .login__titlebar-btn.close:hover { background: var(--error); color: #fff; }
 
 /* Grille chunk en fond */
 .login__bg {
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(255,240,220,0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,240,220,0.05) 1px, transparent 1px),
-    linear-gradient(rgba(255,240,220,0.018) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,240,220,0.018) 1px, transparent 1px);
-  background-size: 256px 256px, 256px 256px, 16px 16px, 16px 16px;
-  pointer-events: none;
+    position: absolute;
+    inset: 0;
+    background-image:
+            linear-gradient(rgba(255,240,220,0.05) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,240,220,0.05) 1px, transparent 1px),
+            linear-gradient(rgba(255,240,220,0.018) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,240,220,0.018) 1px, transparent 1px);
+    background-size: 256px 256px, 256px 256px, 16px 16px, 16px 16px;
+    pointer-events: none;
 }
 
 /* Carte centrale */
 .login__card {
-  position: relative;
-  z-index: 1;
-  -webkit-app-region: no-drag;
-  width: 360px;
-  padding: 40px 36px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-bright);
-  border-top: 2px solid var(--orange);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
+    position: relative;
+    z-index: 1;
+    -webkit-app-region: no-drag;
+    width: 360px;
+    padding: 40px 36px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-bright);
+    border-top: 2px solid var(--orange);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
 }
 
 .login__logo {
-  width: 48px;
-  height: 48px;
-  image-rendering: pixelated;
-  filter: drop-shadow(0 2px 12px rgba(236,130,0,0.5));
-  margin-bottom: 4px;
+    width: 72px;
+    height: 72px;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 12px rgba(236,130,0,0.5));
+    margin-bottom: 4px;
 }
 
 .login__title {
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: 5px;
-  color: var(--text);
-  text-transform: uppercase;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 5px;
+    color: var(--text);
+    text-transform: uppercase;
 }
 .login__title span { color: var(--orange); }
 
 .login__subtitle {
-  font-size: 15px;
-  color: var(--text-muted);
-  letter-spacing: 1px;
-  margin-bottom: 16px;
+    font-size: 15px;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    margin-bottom: 16px;
+    text-align: center;
+    text-wrap: balance;
 }
 
 /* Formulaire */
 .login__form {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
 }
 
 .login__field {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
 }
 
 .login__label {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-secondary);
 }
 
 .login__input {
-  width: 100%;
-  padding: 10px 13px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-bright);
-  border-radius: 2px;
-  color: var(--text);
-  font-family: 'Rajdhani', sans-serif;
-  font-size: 15px;
-  font-weight: 500;
-  outline: none;
-  transition: border-color 180ms;
+    width: 100%;
+    padding: 10px 13px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-bright);
+    border-radius: 2px;
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    outline: none;
+    transition: border-color 180ms;
 }
 .login__input::placeholder { color: var(--text-muted); }
 .login__input:focus { border-color: var(--orange); }
@@ -134,44 +166,44 @@
 
 /* Erreur */
 .login__error {
-  font-size: 13px;
-  color: var(--error);
-  font-weight: 600;
-  padding: 8px 12px;
-  background: rgba(231,76,60,0.1);
-  border: 1px solid rgba(231,76,60,0.25);
-  border-radius: 2px;
-  line-height: 1.4;
+    font-size: 13px;
+    color: var(--error);
+    font-weight: 600;
+    padding: 8px 12px;
+    background: rgba(231,76,60,0.1);
+    border: 1px solid rgba(231,76,60,0.25);
+    border-radius: 2px;
+    line-height: 1.4;
 }
 .login__countdown {
-  color: var(--warning);
-  font-size: 12px;
+    color: var(--warning);
+    font-size: 12px;
 }
 
 /* Bouton */
 .login__btn-play {
-  margin-top: 4px;
-  height: 50px;
-  font-size: 16px;
-  letter-spacing: 4px;
-  width: 100%;
-  max-width: 100%;
-  clip-path: none;
+    margin-top: 4px;
+    height: 50px;
+    font-size: 16px;
+    letter-spacing: 4px;
+    width: 100%;
+    max-width: 100%;
+    clip-path: none;
 }
 
 /* Lien inscription */
 .login__register {
-  margin-top: 12px;
-  font-size: 15px;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: color 180ms;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  text-decoration-color: transparent;
-  transition: color 180ms, text-decoration-color 180ms;
+    margin-top: 12px;
+    font-size: 15px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: color 180ms;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-color: transparent;
+    transition: color 180ms, text-decoration-color 180ms;
 }
 .login__register:hover {
-  color: var(--orange);
-  text-decoration-color: var(--orange);
+    color: var(--orange);
+    text-decoration-color: var(--orange);
 }

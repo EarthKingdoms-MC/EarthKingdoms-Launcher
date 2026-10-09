@@ -92,11 +92,11 @@ function classifyGpu(name: string | null): { kind: HardwareInfo['gpuKind']; scor
   if (/uhd graphics|hd graphics|iris|vega \d| radeon graphics|integrated/.test(n)) {
     return { kind: 'integrated', score: 1 }
   }
-  if (/apple m\d/.test(n))                              return { kind: 'dedicated', score: 3 }
-  if (/rtx [2-9]\d{3}|gtx 16\d{2}/.test(n))             return { kind: 'dedicated', score: 3 }
+  if (/apple m\d/.test(n))                                return { kind: 'dedicated', score: 3 }
+  if (/rtx [2-9]\d{3}|gtx 16\d{2}/.test(n))               return { kind: 'dedicated', score: 3 }
   if (/rx [5-9]\d{3}|rx 7\d{2}0|radeon rx [5-9]/.test(n)) return { kind: 'dedicated', score: 3 }
-  if (/arc a\d{3}/.test(n))                             return { kind: 'dedicated', score: 2 }
-  if (/geforce|quadro|radeon|firepro/.test(n))          return { kind: 'dedicated', score: 2 }
+  if (/arc a\d{3}/.test(n))                               return { kind: 'dedicated', score: 2 }
+  if (/geforce|quadro|radeon|firepro/.test(n))            return { kind: 'dedicated', score: 2 }
 
   // Chromium n'a donné qu'un identifiant de fondeur (fréquent sous Linux, où
   // glRenderer n'est pas toujours exposé). Le fondeur suffit à ne pas sous-

@@ -25,59 +25,59 @@ const _startOffset: Partial<Record<SoundFile, number>>                          
 // ── Initialisation ────────────────────────────────────────────────────────
 
 ;(function init() {
-  for (const file of SOUND_FILES) {
-    try {
-      const make = (): HTMLAudioElement => {
-        const a = new Audio(`./sounds/${file}`)
-        a.preload = 'auto'
+    for (const file of SOUND_FILES) {
+        try {
+            const make = (): HTMLAudioElement => {
+                const a = new Audio(`./sounds/${file}`)
+                a.preload = 'auto'
 
-        // Calcule l'offset de démarrage dès que les métadonnées sont disponibles
-        a.addEventListener('loadedmetadata', () => {
-          if (SKIP_HALF.has(file) && isFinite(a.duration) && a.duration > 0) {
-            _startOffset[file] = a.duration / 2
-          }
-        }, { once: true })
+                // Calcule l'offset de démarrage dès que les métadonnées sont disponibles
+                a.addEventListener('loadedmetadata', () => {
+                    if (SKIP_HALF.has(file) && isFinite(a.duration) && a.duration > 0) {
+                        _startOffset[file] = a.duration / 2
+                    }
+                }, { once: true })
 
-        a.load()
-        return a
-      }
+                a.load()
+                return a
+            }
 
-      const a0 = make()
-      const a1 = make()
+            const a0 = make()
+            const a1 = make()
 
-      // Préchauffage : joué en silence pour initialiser la pipeline audio OS
-      const warm = (a: HTMLAudioElement) => {
-        a.volume = 0.001
-        a.play()
-          .then(() => {
-            a.pause()
-            a.currentTime = _startOffset[file] ?? 0
-            a.volume = 1
-          })
-          .catch(() => {})
-      }
-      warm(a0)
-      warm(a1)
+            // Préchauffage : joué en silence pour initialiser la pipeline audio OS
+            const warm = (a: HTMLAudioElement) => {
+                a.volume = 0.001
+                a.play()
+                    .then(() => {
+                        a.pause()
+                        a.currentTime = _startOffset[file] ?? 0
+                        a.volume = 1
+                    })
+                    .catch(() => {})
+            }
+            warm(a0)
+            warm(a1)
 
-      _pool[file]    = [a0, a1]
-      _poolIdx[file] = 0
-    } catch { /* son indisponible */ }
-  }
+            _pool[file]    = [a0, a1]
+            _poolIdx[file] = 0
+        } catch { /* son indisponible */ }
+    }
 })()
 
 // ── Lecture via le pool ───────────────────────────────────────────────────
 
 function playBuf(file: SoundFile, vol: number): void {
-  const pool = _pool[file]
-  if (!pool) return
-  try {
-    const idx   = _poolIdx[file] ?? 0
-    const audio = pool[idx]
-    _poolIdx[file]    = idx === 0 ? 1 : 0
-    audio.volume      = Math.max(0, Math.min(1, vol))
-    audio.currentTime = _startOffset[file] ?? 0   // saute l'attaque silencieuse
-    audio.play().catch(() => {})
-  } catch { }
+    const pool = _pool[file]
+    if (!pool) return
+    try {
+        const idx   = _poolIdx[file] ?? 0
+        const audio = pool[idx]
+        _poolIdx[file]    = idx === 0 ? 1 : 0
+        audio.volume      = Math.max(0, Math.min(1, vol))
+        audio.currentTime = _startOffset[file] ?? 0   // saute l'attaque silencieuse
+        audio.play().catch(() => {})
+    } catch { /* empty */ }
 }
 
 // ── API publique ──────────────────────────────────────────────────────────

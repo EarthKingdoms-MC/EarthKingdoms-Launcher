@@ -1,5 +1,6 @@
 appId: com.earthkingdoms.launcher
 productName: EarthKingdoms Launcher
+publisher: EarthKingdoms Inc.
 publish:
   provider: github
   owner: EarthKingdoms-MC
@@ -32,3 +33,4 @@ nsis:
   oneClick: true
   perMachine: false
   allowElevation: true
+  uninstallDisplayName: EarthKingdoms Launcher

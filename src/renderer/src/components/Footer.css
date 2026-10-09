@@ -1,120 +1,148 @@
 .footer {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 34px;
-  padding: 0 20px;
-  background: var(--bg-surface);
-  border-top: 1px solid var(--border);
-  flex-shrink: 0;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 34px;
+    padding: 0 20px;
+    background: var(--bg-surface);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
 }
 
 .footer__item {
-  font-size: 11px;
-  color: var(--text-muted);
-  font-weight: 500;
-  letter-spacing: 0.3px;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 500;
+    letter-spacing: 0.3px;
 }
 .footer__value {
-  color: var(--text-secondary);
-  font-weight: 700;
+    color: var(--text-secondary);
+    font-weight: 700;
 }
-/* VT323 nécessite une taille plus grande pour correspondre visuellement */
 .footer__value.font-mc {
-  font-size: 16px;
-  letter-spacing: 0.5px;
-  vertical-align: baseline;
-  line-height: 1;
+    font-size: 16px;
+    letter-spacing: 0.5px;
+    vertical-align: baseline;
+    line-height: 1;
 }
-.footer__item--ver.font-mc {
-  font-size: 16px;
-  color: var(--orange);
-  opacity: 0.8;
+.footer__item--ver {
+    font-size: 16px;
+    color: var(--orange);
+    opacity: 0.8;
 }
-.footer__sep { color: var(--border); font-size: 10px; }
+.footer__sep {
+    color: var(--border);
+    font-size: 16px;
+}
 
 .footer__server {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--success);
-  letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--success);
+    letter-spacing: 0.5px;
 }
 .footer__server::before {
-  content: '';
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--success);
-  box-shadow: 0 0 5px var(--success);
-  display: inline-block;
-  flex-shrink: 0;
+    content: '';
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--success);
+    box-shadow: 0 0 5px var(--success);
+    display: inline-block;
+    flex-shrink: 0;
 }
 
 /* ── Liens sociaux ──────────────────────────────────── */
 .footer__links {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 2px;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 2px;
 }
 
 .footer__link-group {
-  display: flex;
-  align-items: center;
-  gap: 1px;
+    display: flex;
+    align-items: center;
+    gap: 1px;
 }
 
 .footer__links-sep {
-  width: 1px;
-  height: 12px;
-  background: var(--border);
-  margin: 0 6px;
-  display: inline-block;
-  flex-shrink: 0;
+    width: 1px;
+    height: 12px;
+    background: var(--border);
+    margin: 0 6px;
+    display: inline-block;
+    flex-shrink: 0;
 }
 
 .footer__link {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 26px;
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  border-radius: 3px;
-  transition: color 180ms, background 180ms;
-}
-.footer__link svg {
-  width: 19px;
-  height: 19px;
-  transition: transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 180ms;
-}
-.footer__link:hover {
-  background: rgba(255,255,255,0.06);
-  opacity: 1;
-}
-.footer__link:hover svg {
-  transform: scale(1.9);
+    --brand: var(--orange);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 26px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: 6px;
+    transition: color 180ms, transform 120ms;
 }
 
-/* Couleurs spécifiques au hover */
-.footer__link[title="Discord"]:hover     { color: #5865F2; }
-.footer__link[title="Twitter / X"]:hover { color: var(--text); }
-.footer__link[title="YouTube"]:hover     { color: #FF0000; }
-.footer__link[title="TikTok"]:hover      { color: var(--text); }
-.footer__link[title="Instagram"]:hover   { color: #E1306C; }
+.footer__link::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--brand);
+    opacity: 0;
+    transition: opacity 180ms;
+    pointer-events: none;
+}
+
+.footer__link svg {
+    position: relative;
+    width: 17px;
+    height: 17px;
+    transition: transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1), filter 180ms;
+}
+
+.footer__link:hover,
+.footer__link:focus-visible {
+    color: var(--brand);
+    outline: none;
+}
+.footer__link:hover::before,
+.footer__link:focus-visible::before {
+    opacity: 0.14;
+}
+.footer__link:hover svg,
+.footer__link:focus-visible svg {
+    transform: translateY(-1px) scale(1.15);
+    filter: drop-shadow(0 0 5px var(--brand));
+}
+
+/* Effet d'appui au clic */
+.footer__link:active { transform: scale(0.92); }
+
+/* Couleurs de marque */
+.footer__link[title="Discord"]     { --brand: #5865F2; }
+.footer__link[title="YouTube"]     { --brand: #FF4444; }
+.footer__link[title="Instagram"]   { --brand: #E1306C; }
+.footer__link[title="Twitter / X"] { --brand: var(--text); }
+.footer__link[title="TikTok"]      { --brand: #25F4EE; }
 
 .footer__right {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }

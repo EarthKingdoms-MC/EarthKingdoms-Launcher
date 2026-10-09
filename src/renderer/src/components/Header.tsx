@@ -1,212 +1,202 @@
 import { useState } from 'react'
 import { Page } from '../App'
 import { useSkinHead } from '../hooks/useSkin'
+import {
+    User, Image as ImageIcon, UserPlus, LogOut, ChevronDown, Minus, Square, X,
+    House, FileText, Map as MapIcon, RefreshCw, ShoppingBag, Terminal, Settings, type LucideIcon,
+} from 'lucide-react'
 import './Header.css'
 
 interface AccountInfo {
-  username: string
-  uuid:     string
-  isAdmin:  boolean
+    username: string
+    uuid:     string
+    isAdmin:  boolean
 }
 
 interface Props {
-  currentPage:      Page
-  onNavigate:       (p: Page) => void
-  username:         string
-  skinRefreshKey?:  number
-  overrideHeadUrl?: string | null
-  onOpenSkin:       () => void
-  onLogout?:        () => void
-  newsBadge?:       number
-  accounts?:        AccountInfo[]
-  activeUuid?:      string
-  onSwitchAccount?: (uuid: string) => void
-  onAddAccount?:    () => void
-  onRemoveAccount?: (uuid: string) => void
+    currentPage:      Page
+    onNavigate:       (p: Page) => void
+    username:         string
+    skinRefreshKey?:  number
+    overrideHeadUrl?: string | null
+    onOpenSkin:       () => void
+    onLogout?:        () => void
+    newsBadge?:       number
+    accounts?:        AccountInfo[]
+    activeUuid?:      string
+    onSwitchAccount?: (uuid: string) => void
+    onAddAccount?:    () => void
+    onRemoveAccount?: (uuid: string) => void
 }
 
 export default function Header({
-  currentPage, onNavigate, username, skinRefreshKey, overrideHeadUrl, onOpenSkin, onLogout,
-  newsBadge, accounts = [], activeUuid, onSwitchAccount, onAddAccount, onRemoveAccount,
-}: Props) {
-  const fetchedHeadUrl = useSkinHead(username, skinRefreshKey)
-  const headUrl = overrideHeadUrl ?? fetchedHeadUrl
-  const [showAccountMenu, setShowAccountMenu] = useState(false)
+                                   currentPage, onNavigate, username, skinRefreshKey, overrideHeadUrl, onOpenSkin, onLogout,
+                                   newsBadge, accounts = [], activeUuid, onSwitchAccount, onAddAccount, onRemoveAccount,
+                               }: Props) {
+    const fetchedHeadUrl = useSkinHead(username, skinRefreshKey)
+    const headUrl = overrideHeadUrl ?? fetchedHeadUrl
+    const [showAccountMenu, setShowAccountMenu] = useState(false)
 
-  const navItems = [
-    { id: 'home',         icon: './icons/home.svg',     label: 'Accueil',       badge: newsBadge ?? 0 },
-    { id: 'mods',         icon: './icons/update.svg',   label: 'Mods',          badge: 0 },
-    { id: 'patchnotes',   icon: './icons/news.svg',     label: 'Patch Notes',   badge: 0 },
-    { id: 'dynmap',       icon: './icons/map.svg',      label: 'Livemap',       badge: 0 },
-    { id: 'shop',         icon: './icons/shop.svg',     label: 'Boutique',      badge: 0 },
-    { id: 'settings',     icon: './icons/settings.svg', label: 'Paramètres',    badge: 0 },
-    { id: 'logs',         icon: './icons/logs.svg',     label: 'Logs',          badge: 0 },
-  ] as { id: Page; icon: string; label: string; badge: number }[]
+    const navItems: { id: Page; icon: LucideIcon; label: string; badge: number }[] = [
+        { id: 'home',       icon: House,       label: 'Accueil',     badge: newsBadge ?? 0 },
+        { id: 'patchnotes', icon: FileText,    label: 'Patch Notes', badge: 0 },
+        { id: 'livemap',    icon: MapIcon,     label: 'Livemap',     badge: 0 },
+        { id: 'mods',       icon: RefreshCw,   label: 'Mods',        badge: 0 },
+        { id: 'shop',       icon: ShoppingBag, label: 'Boutique',    badge: 0 },
+        { id: 'logs',       icon: Terminal,    label: 'Logs',        badge: 0 },
+    ]
 
-  function handleProfileClick() {
-    setShowAccountMenu(v => !v)
-  }
+    function handleProfileClick() {
+        setShowAccountMenu(v => !v)
+    }
 
-  function closeMenu() {
-    setShowAccountMenu(false)
-  }
+    function closeMenu() {
+        setShowAccountMenu(false)
+    }
 
-  return (
-    <header className="header">
-      {/* Logo */}
-      <div className="header__drag">
-        <div className="header__logo">
-          <img src="./logo32.png" alt="EarthKingdoms" className="header__logo-img" />
-          <div className="header__logo-text">
-            <span className="header__logo-earth">EARTH</span>
-            <span className="header__logo-kingdoms">KINGDOMS</span>
-          </div>
-        </div>
-      </div>
+    return (
+        <header className="header">
+            {/* Logo */}
+            <div className="header__drag">
+                <div className="header__logo">
+                    <img
+                        src="./logos/logo-36.png"
+                        srcSet="./logos/logo-72.png 2x, ./logos/logo-108.png 3x"
+                        alt="EarthKingdoms"
+                        className="header__logo-img"
+                    />
+                </div>
+            </div>
 
-      {/* Navigation */}
-      <nav className="header__nav">
-        {navItems.map(({ id, icon, label, badge }) => (
-          <button
-            key={id}
-            className={`header__nav-btn ${currentPage === id ? 'active' : ''}`}
-            onClick={() => onNavigate(id)}
-          >
-            <img src={icon} alt="" />
-            {label}
-            {badge > 0 && (
-              <span className="header__nav-badge">{badge > 9 ? '9+' : badge}</span>
-            )}
-          </button>
-        ))}
-      </nav>
+            {/* Navigation */}
+            <nav className="header__nav">
+                {navItems.map(({ id, icon: Icon, label, badge }) => (
+                    <button
+                        key={id}
+                        className={`header__nav-btn ${currentPage === id ? 'active' : ''}`}
+                        onClick={() => onNavigate(id)}
+                    >
+                        <Icon size={15} strokeWidth={2} />
+                        {label}
+                        {badge > 0 && (
+                            <span className="header__nav-badge">{badge > 9 ? '9+' : badge}</span>
+                        )}
+                    </button>
+                ))}
+            </nav>
 
-      {/* Profil + tête skin */}
-      <div className="header__actions">
-        <div className="header__profile-wrap">
-          <button
-            className="header__profile"
-            onClick={handleProfileClick}
-            title="Mon compte"
-          >
-            {headUrl
-              ? <img src={headUrl} className="header__avatar" alt="head" />
-              : <img src="./icons/avatar-default.svg" className="header__avatar header__avatar--fallback" alt="avatar" />
-            }
-            <span className="header__username">{username}</span>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style={{ marginLeft: 2, opacity: 0.85 }}>
-              <path d="M7 10l5 5 5-5z"/>
-            </svg>
-          </button>
+            {/* Profil + tête skin */}
+            <div className="header__actions">
+                <button
+                    className={`header__settings ${currentPage === 'settings' ? 'active' : ''}`}
+                    onClick={() => onNavigate('settings')}
+                    title="Paramètres"
+                >
+                    <Settings size={16} strokeWidth={2} />
+                </button>
+                <div className="header__profile-wrap">
+                    <button
+                        className={`header__profile ${showAccountMenu ? 'open' : ''}`}
+                        onClick={handleProfileClick}
+                        title="Mon compte"
+                    >
+                        {headUrl
+                            ? <img src={headUrl} className="header__avatar" alt="head" />
+                            : <User className="header__avatar header__avatar--fallback" size={12} strokeWidth={2} />
+                        }
+                        <span className="header__username">{username}</span>
+                        <ChevronDown className="header__profile-chevron" size={16} strokeWidth={2} />
+                    </button>
 
-          {showAccountMenu && (
-            <>
-              <div className="header__account-backdrop" onClick={closeMenu} />
-              <div className="header__account-menu">
-                <div className="header__account-current">
-                  {headUrl
-                    ? <img src={headUrl} className="header__account-current-avatar" alt="head" />
-                    : <img src="./icons/avatar-default.svg" className="header__account-current-avatar header__avatar--fallback" alt="avatar" />
-                  }
-                  <div className="header__account-current-info">
-                    <span className="header__account-current-name">{username}</span>
-                    {accounts.find(a => a.uuid === activeUuid)?.isAdmin && (
-                      <span className="header__account-admin">ADMIN</span>
+                    {showAccountMenu && (
+                        <>
+                            <div className="header__account-backdrop" onClick={closeMenu} />
+                            <div className="header__account-menu">
+                                <div className="header__account-current">
+                                    {headUrl
+                                        ? <img src={headUrl} className="header__account-current-avatar" alt="head" />
+                                        : <User className="header__account-current-avatar header__avatar--fallback" size={12} strokeWidth={2} />
+                                    }
+                                    <div className="header__account-current-info">
+                                        <span className="header__account-current-name">{username}</span>
+                                        {accounts.find(a => a.uuid === activeUuid)?.isAdmin && (
+                                            <span className="header__account-admin">ADMIN</span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="header__account-menu-sep" />
+
+                                <button className="header__account-action" onClick={() => { onNavigate('playerstatus'); closeMenu() }}>
+                                    <User size={15} strokeWidth={2} />
+                                    Mon profil
+                                </button>
+                                <button className="header__account-action" onClick={() => { onOpenSkin(); closeMenu() }}>
+                                    <ImageIcon size={15} strokeWidth={2} />
+                                    Gérer le skin
+                                </button>
+
+                                {accounts.length > 1 && (
+                                    <>
+                                        <div className="header__account-menu-sep" />
+                                        <div className="header__account-menu-title">Comptes</div>
+                                        {accounts.filter(acc => acc.uuid !== activeUuid).map(acc => (
+                                            <div key={acc.uuid} className="header__account-item">
+                                                <button
+                                                    className="header__account-switch"
+                                                    onClick={() => { onSwitchAccount?.(acc.uuid); closeMenu() }}
+                                                >
+                                                    <span className="header__account-dot" />
+                                                    <span>{acc.username}</span>
+                                                    {!!acc.isAdmin && <span className="header__account-admin">ADMIN</span>}
+                                                </button>
+                                                <button
+                                                    className="header__account-remove"
+                                                    data-sound="close"
+                                                    title="Retirer ce compte"
+                                                    onClick={() => { onRemoveAccount?.(acc.uuid); closeMenu() }}
+                                                ><X size={12} strokeWidth={2} /></button>
+                                            </div>
+                                        ))}
+                                    </>
+                                )}
+
+                                <div className="header__account-menu-sep" />
+                                {onAddAccount && (
+                                    <button className="header__account-action" onClick={() => { onAddAccount(); closeMenu() }}>
+                                        <UserPlus size={15} strokeWidth={2} />
+                                        Ajouter un compte
+                                    </button>
+                                )}
+                                {onLogout && (
+                                    <button
+                                        className="header__account-action header__account-action--danger"
+                                        data-sound="close"
+                                        onClick={() => { onLogout(); closeMenu() }}
+                                    >
+                                        <LogOut size={15} strokeWidth={2} />
+                                        Déconnecter {username}
+                                    </button>
+                                )}
+                            </div>
+                        </>
                     )}
-                  </div>
                 </div>
 
-                <div className="header__account-menu-sep" />
+                <div className="header__window-controls">
+                    <button onClick={() => window.api.minimize()} title="Réduire">
+                        <Minus size={18} strokeWidth={2} />
+                    </button>
 
-                <button className="header__account-action" onClick={() => { onNavigate('playerstatus'); closeMenu() }}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                    <circle cx="12" cy="7" r="4"/>
-                  </svg>
-                  Mon profil
-                </button>
-                <button className="header__account-action" onClick={() => { onOpenSkin(); closeMenu() }}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="3" width="18" height="18" rx="2"/>
-                    <circle cx="8.5" cy="8.5" r="1.5"/>
-                    <path d="M21 15l-5-5L5 21"/>
-                  </svg>
-                  Gérer le skin
-                </button>
+                    <button onClick={() => window.api.maximize()} title="Agrandir">
+                        <Square size={14} strokeWidth={2} />
+                    </button>
 
-                {accounts.length > 1 && (
-                  <>
-                    <div className="header__account-menu-sep" />
-                    <div className="header__account-menu-title">Comptes</div>
-                    {accounts.filter(acc => acc.uuid !== activeUuid).map(acc => (
-                      <div key={acc.uuid} className="header__account-item">
-                        <button
-                          className="header__account-switch"
-                          onClick={() => { onSwitchAccount?.(acc.uuid); closeMenu() }}
-                        >
-                          <span className="header__account-dot" />
-                          <span>{acc.username}</span>
-                          {!!acc.isAdmin && <span className="header__account-admin">ADMIN</span>}
-                        </button>
-                        <button
-                          className="header__account-remove"
-                          data-sound="close"
-                          title="Retirer ce compte"
-                          onClick={() => { onRemoveAccount?.(acc.uuid); closeMenu() }}
-                        >✕</button>
-                      </div>
-                    ))}
-                  </>
-                )}
-
-                <div className="header__account-menu-sep" />
-                {onAddAccount && (
-                  <button className="header__account-action" onClick={() => { onAddAccount(); closeMenu() }}>
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
-                      <circle cx="9" cy="7" r="4"/>
-                      <line x1="19" y1="8" x2="19" y2="14"/>
-                      <line x1="22" y1="11" x2="16" y2="11"/>
-                    </svg>
-                    Ajouter un compte
-                  </button>
-                )}
-                {onLogout && (
-                  <button
-                    className="header__account-action header__account-action--danger"
-                    data-sound="close"
-                    onClick={() => { onLogout(); closeMenu() }}
-                  >
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                      <polyline points="16 17 21 12 16 7"/>
-                      <line x1="21" y1="12" x2="9" y2="12"/>
-                    </svg>
-                    Déconnecter {username}
-                  </button>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Bouton logout direct si pas de menu multicompte */}
-        {onLogout && accounts.length <= 1 && (
-          <button className="header__logout" data-sound="close" onClick={onLogout} title="Se déconnecter">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-              <polyline points="16 17 21 12 16 7"/>
-              <line x1="21" y1="12" x2="9" y2="12"/>
-            </svg>
-          </button>
-        )}
-
-        <div className="header__window-controls">
-          <button onClick={() => window.api.minimize()} title="Réduire">─</button>
-          <button onClick={() => window.api.maximize()} title="Agrandir">□</button>
-          <button className="close" onClick={() => window.api.close()} title="Fermer">✕</button>
-        </div>
-      </div>
-    </header>
-  )
+                    <button className="close" onClick={() => window.api.close()} title="Fermer">
+                        <X size={20} strokeWidth={2} />
+                    </button>
+                </div>
+            </div>
+        </header>
+    )
 }

@@ -1,301 +1,443 @@
 .mods {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  background: var(--bg-main);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: var(--bg-main);
 }
 
 /* ── Header ─────────────────────────────────────────────────────────────────── */
 .mods__header {
-  padding: 24px 28px 16px;
-  flex-shrink: 0;
-  border-bottom: 1px solid var(--border);
+    padding: 24px 28px 16px;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border);
+    transition: padding 280ms cubic-bezier(0.4, 0, 0.2, 1);
 }
+.mods__header--collapsed { padding-top: 14px; padding-bottom: 12px; }
+
+/* Zone repliable (technique grid 0fr → 1fr : anime la hauteur sans la connaître) */
+.mods__extras {
+    display: grid;
+    grid-template-rows: 1fr;
+    opacity: 1;
+    transition: grid-template-rows 280ms cubic-bezier(0.4, 0, 0.2, 1), opacity 200ms;
+}
+.mods__extras-inner { min-height: 0; overflow: hidden; }
+.mods__header--collapsed .mods__extras {
+    grid-template-rows: 0fr;
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Modpack actif, affiché à côté du compteur quand la barre est réduite */
+.mods__pack-chip {
+    align-self: center;
+    padding: 2px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--orange);
+    background: rgba(236,130,0,0.1);
+    border: 2px solid rgba(236,130,0,0.3);
+    border-radius: 20px;
+    animation: chip-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+@keyframes chip-in {
+    from { opacity: 0; transform: translateX(-6px); }
+    to   { opacity: 1; transform: none; }
+}
+
 .mods__title-row {
-  display: flex;
-  align-items: baseline;
-  gap: 14px;
-  margin-bottom: 5px;
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    margin-bottom: 5px;
 }
 .mods__title {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 4px;
-  text-transform: uppercase;
-  color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-  gap: 12px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 .mods__title::before {
-  content: '';
-  display: inline-block;
-  width: 18px;
-  height: 2px;
-  background: var(--orange);
-  flex-shrink: 0;
+    content: '';
+    display: inline-block;
+    width: 18px;
+    height: 2px;
+    background: var(--orange);
+    flex-shrink: 0;
 }
 .mods__count {
-  font-family: 'VT323', monospace;
-  font-size: 18px;
-  color: var(--orange);
-  letter-spacing: 1px;
+    font-family: 'VT323', monospace;
+    font-size: 18px;
+    color: var(--orange);
+    letter-spacing: 1px;
 }
 .mods__subtitle {
-  font-size: 13px;
-  color: var(--text-secondary);
-  font-weight: 400;
-  line-height: 1.5;
-  padding-left: 30px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-weight: 400;
+    line-height: 1.5;
+    padding-left: 30px;
 }
 
 /* ── Liste ───────────────────────────────────────────────────────────────────── */
 .mods__list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 12px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 14px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
+.mods__list::-webkit-scrollbar { width: 6px; }
+.mods__list::-webkit-scrollbar-track { background: transparent; }
+.mods__list::-webkit-scrollbar-thumb { background: rgba(255,240,220,0.1); border-radius: 3px; }
+.mods__list::-webkit-scrollbar-thumb:hover { background: rgba(236,130,0,0.4); }
 
 .mods__empty {
-  color: var(--text-muted);
-  font-size: 13px;
-  padding: 12px 0;
+    color: var(--text-muted);
+    font-size: 13px;
+    padding: 12px 0;
 }
 
 /* ── Ligne mod ──────────────────────────────────────────────────────────────── */
 .mod-row {
-  display: flex;
-  align-items: center;
-  gap: 28px;
-  padding: 28px;
-  background: var(--bg-surface);
-  border: 4px solid var(--border);
-  border-radius: 18px;
-  transition: background 150ms, border-color 150ms;
+    position: relative;
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 18px;
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(255,240,220,0.06);
+    border-radius: 10px;
+    overflow: hidden;
+    animation: mod-in 380ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+    transition: background 200ms, border-color 200ms;
+}
+@keyframes mod-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: none; }
+}
+.mod-row:hover {
+    border-color: rgba(255,240,220,0.14);
+    background: rgba(255,255,255,0.04);
+}
+
+/* Barre pleine hauteur sur les mods actifs (coupée par l'arrondi) */
+.mod-row::before {
+    content: '';
+    position: absolute;
+    left: -1px; top: -1px; bottom: -1px;
+    width: 3px;
+    background: var(--orange);
+    transform: scaleY(0);
+    transition: transform 260ms cubic-bezier(0.34, 1.3, 0.64, 1);
 }
 .mod-row--on {
-  border-color: rgba(236,130,0,0.45);
-  background: rgba(236,130,0,0.04);
+    border-color: rgba(236,130,0,0.28);
+    background: linear-gradient(135deg, rgba(236,130,0,0.08) 0%, rgba(255,255,255,0.025) 70%);
 }
+.mod-row--on::before { transform: scaleY(1); }
 
 /* Icône */
 .mod-row__icon {
-  flex-shrink: 0;
-  width: 64px;
-  height: 64px;
-  background: var(--bg-elevated);
-  border: 2px solid rgba(255,240,220,0.1);
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-muted);
-  transition: color 150ms, border-color 150ms, background 150ms;
-  image-rendering: pixelated;
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    background: var(--bg-elevated);
+    border: 1px solid rgba(255,240,220,0.1);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    transition: color 150ms, border-color 150ms, background 150ms;
 }
+.mod-row__icon svg { width: 26px; height: 26px; }
 .mod-row--on .mod-row__icon {
-  color: var(--orange);
-  border-color: rgba(236,130,0,0.5);
-  background: rgba(236,130,0,0.08);
+    color: var(--orange);
+    border-color: rgba(236,130,0,0.45);
+    background: rgba(236,130,0,0.08);
 }
 
 /* Infos */
-.mod-row__info {
-  flex: 1;
-  min-width: 0;
-}
+.mod-row__info { flex: 1; min-width: 0; }
 .mod-row__name-line {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  margin-bottom: 6px;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 4px;
 }
 .mod-row__name {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .mod-row__version {
-  font-family: 'VT323', monospace;
-  font-size: 18px;
-  color: var(--text-muted);
-  letter-spacing: 0.5px;
-  flex-shrink: 0;
+    font-family: 'VT323', monospace;
+    font-size: 18px;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
 }
 .mod-row__size {
-  font-family: 'VT323', monospace;
-  font-size: 18px;
-  color: var(--text-muted);
-  letter-spacing: 0.5px;
-  flex-shrink: 0;
+    font-family: 'VT323', monospace;
+    font-size: 18px;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
 }
 .mod-row__desc {
-  font-size: 14px;
-  color: var(--text-secondary);
-  line-height: 1.45;
-  margin: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.45;
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
 /* ── Bouton toggle style Minecraft ──────────────────────────────────────────── */
 .mod-toggle {
-  flex-shrink: 0;
-  font-family: 'Rajdhani', sans-serif;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 2px;
-  padding: 10px 28px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: filter 100ms;
-  user-select: none;
-  min-width: 150px;
-  text-align: center;
-  /* Effet relief Minecraft */
-  position: relative;
+    flex-shrink: 0;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    padding: 10px 28px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: filter 100ms;
+    user-select: none;
+    min-width: 150px;
+    text-align: center;
+    /* Effet relief Minecraft */
+    position: relative;
 }
 .mod-toggle::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 2px;
-  box-shadow: inset 0 -3px 0 rgba(0,0,0,0.4), inset 0 3px 0 rgba(255,255,255,0.12);
-  pointer-events: none;
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 2px;
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,0.4), inset 0 3px 0 rgba(255,255,255,0.12);
+    pointer-events: none;
 }
 .mod-toggle:active {
-  filter: brightness(0.85);
-  transform: translateY(1px);
+    filter: brightness(0.85);
+    transform: translateY(1px);
 }
 .mod-toggle:active::after {
-  box-shadow: inset 0 -1px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.12);
+    box-shadow: inset 0 -1px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.12);
 }
 
 /* État DÉSACTIVÉ - gris MC */
 .mod-toggle--off {
-  background: #5a5a5a;
-  color: #c6c6c6;
+    background: #5a5a5a;
+    color: #c6c6c6;
 }
 .mod-toggle--off:hover {
-  background: #696969;
+    background: #696969;
 }
 
 /* État ACTIVÉ - vert MC */
 .mod-toggle--on {
-  background: #3a7d3a;
-  color: #c6ffc6;
+    background: #3a7d3a;
+    color: #c6ffc6;
 }
 .mod-toggle--on:hover {
-  background: #4a9a4a;
+    background: #4a9a4a;
+}
+
+.mod-switch {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    transition: color 180ms;
+}
+.mod-switch__label { min-width: 74px; text-align: right; }  /* évite que les lignes se décalent */
+.mod-switch__track {
+    position: relative;
+    width: 38px;
+    height: 22px;
+    border-radius: 11px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid var(--border-bright);
+    transition: background 200ms, border-color 200ms;
+}
+.mod-switch__track::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--text-secondary);
+    transition: transform 220ms cubic-bezier(0.34, 1.3, 0.64, 1), background 200ms, box-shadow 200ms;
+}
+.mod-switch:hover .mod-switch__track { border-color: rgba(236,130,0,0.5); }
+.mod-switch--on { color: var(--orange); }
+.mod-switch--on .mod-switch__track {
+    background: rgba(236,130,0,0.25);
+    border-color: rgba(236,130,0,0.6);
+}
+.mod-switch--on .mod-switch__track::after {
+    transform: translateX(16px);
+    background: var(--orange);
+    box-shadow: 0 0 8px rgba(236,130,0,0.6);
+}
+.mod-row--admin .mod-switch--on { color: #c8960c; }
+.mod-row--admin .mod-switch--on .mod-switch__track { background: rgba(200,150,12,0.25); border-color: rgba(200,150,12,0.6); }
+.mod-row--admin .mod-switch--on .mod-switch__track::after { background: #c8960c; box-shadow: 0 0 8px rgba(200,150,12,0.6); }
+
+.mods__btn {
+    padding: 7px 14px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: border-color 180ms, background 180ms, color 180ms;
+}
+.mods__btn:hover {
+    border-color: rgba(236,130,0,0.5);
+    background: rgba(255,255,255,0.07);
+    color: var(--text);
 }
 
 /* ── Section label ──────────────────────────────────────────────────────────── */
 .mods__section-label {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 3px;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  padding: 8px 4px 4px;
-  margin: 0;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 8px 4px 4px;
+    margin: 0;
+    flex-shrink: 0;
 }
 
 /* ── Mod admin ───────────────────────────────────────────────────────────────── */
 .mod-row__admin-badge {
-  font-family: 'VT323', monospace;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  color: #c8960c;
-  background: rgba(200,150,12,0.12);
-  border: 1px solid rgba(200,150,12,0.35);
-  border-radius: 3px;
-  padding: 1px 6px;
-  flex-shrink: 0;
+    font-family: 'VT323', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    color: #c8960c;
+    background: rgba(200,150,12,0.12);
+    border: 1px solid rgba(200,150,12,0.35);
+    border-radius: 3px;
+    padding: 1px 6px;
+    flex-shrink: 0;
 }
 .mod-row--admin {
-  border-color: rgba(200,150,12,0.3);
+    border-color: rgba(200,150,12,0.3);
 }
+.mod-row--admin::before { background: #c8960c; }
 .mod-row--admin.mod-row--on {
-  border-color: rgba(200,150,12,0.6);
-  background: rgba(200,150,12,0.05);
+    border-color: rgba(200,150,12,0.6);
+    background: rgba(200,150,12,0.05);
 }
 .mod-row--admin.mod-row--on .mod-row__icon {
-  color: #c8960c;
-  border-color: rgba(200,150,12,0.5);
-  background: rgba(200,150,12,0.08);
+    color: #c8960c;
+    border-color: rgba(200,150,12,0.5);
+    background: rgba(200,150,12,0.08);
 }
 
 /* ── Footer ─────────────────────────────────────────────────────────────────── */
 .mods__footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 28px;
-  border-top: 1px solid var(--border);
-  flex-shrink: 0;
-  font-size: 13px;
-  color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 28px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+.mods__footer-warning {
+    position: relative;
+    top: 3px;
+    right: 6px;
 }
 .mods__footer-actions {
-  display: flex;
-  gap: 8px;
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
 }
 
 /* ── Palier de performance ────────────────────────────────────────────────
    Indique à quel niveau un mod s'active : Optimisation dès le palier Faible,
    Confort au palier Moyen, Gourmand seulement au palier Élevé. */
 .mod-row__tier {
-  font-family: 'VT323', monospace;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 1.2px;
-  border-radius: 3px;
-  padding: 1px 6px;
-  flex-shrink: 0;
+    font-family: 'VT323', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    border-radius: 3px;
+    padding: 1px 6px;
+    flex-shrink: 0;
 }
 .mod-row__tier--low {
-  color: #2ECC71;
-  background: rgba(46,204,113,0.12);
-  border: 1px solid rgba(46,204,113,0.32);
+    color: #2ECC71;
+    background: rgba(46,204,113,0.12);
+    border: 1px solid rgba(46,204,113,0.32);
 }
 .mod-row__tier--medium {
-  color: #3BC9DB;
-  background: rgba(59,201,219,0.12);
-  border: 1px solid rgba(59,201,219,0.32);
+    color: #3BC9DB;
+    background: rgba(59,201,219,0.12);
+    border: 1px solid rgba(59,201,219,0.32);
 }
 .mod-row__tier--high {
-  color: #EC8200;
-  background: rgba(236,130,0,0.12);
-  border: 1px solid rgba(236,130,0,0.32);
+    color: #EC8200;
+    background: rgba(236,130,0,0.12);
+    border: 1px solid rgba(236,130,0,0.32);
 }
 
 /* Rappel du profil actif sous le titre de la page */
 .mods__profile {
-  margin-top: 6px;
-  font-size: 11px;
-  line-height: 1.6;
-  color: var(--text-muted);
+    margin-top: 6px;
+    font-size: 11px;
+    line-height: 1.6;
+    color: var(--text-muted);
 }
 .mods__profile strong { color: var(--text-secondary); }
 
 .mods__notice {
-  margin-top: 8px;
-  padding: 7px 11px;
-  font-size: 11px;
-  line-height: 1.55;
-  color: var(--success);
-  background: rgba(46,204,113,0.08);
-  border: 1px solid rgba(46,204,113,0.28);
-  border-radius: 4px;
+    margin-top: 8px;
+    padding: 7px 11px;
+    font-size: 11px;
+    line-height: 1.55;
+    color: var(--success);
+    background: rgba(46,204,113,0.08);
+    border: 1px solid rgba(46,204,113,0.28);
+    border-radius: 8px;
 }
 
 /* ── Sélecteur de profil ──────────────────────────────────────────────────
@@ -303,43 +445,64 @@
    paramètres. Les pastilles sont celles de globals.css, partagées avec
    l'écran de configuration. */
 .mods__profiles {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 10px;
-  flex-wrap: wrap;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+    flex-wrap: wrap;
 }
 
 .mods__profiles-label {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    flex-shrink: 0;
 }
 
 .mods__profiles-list {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    position: relative;
+    top: -1px;
 }
 
 .mods__profiles-add { border-style: dashed; }
 
 .mods__profiles-input {
-  min-width: 140px;
-  max-width: 200px;
-  padding: 5px 11px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-bright);
-  border-radius: 20px;
-  color: var(--text-secondary);
-  font-family: 'Rajdhani', sans-serif;
-  font-size: 11px;
-  font-weight: 600;
-  outline: none;
-  transition: border-color 150ms;
+    min-width: 140px;
+    max-width: 200px;
+    padding: 5px 11px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-bright);
+    border-radius: 20px;
+    color: var(--text-secondary);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    outline: none;
+    transition: border-color 150ms;
 }
 .mods__profiles-input:focus { border-color: var(--orange); }
+
+.mods__profiles-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 8px;
+    padding-left: 10px;
+    border-left: 1px solid var(--border);
+}
+
+.mods__profiles-manage {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.mods__profiles-manage svg {
+    flex-shrink: 0;
+}

@@ -1,231 +1,262 @@
 import { useState, useEffect, useRef } from 'react'
+import {Minus, Play, FileText, MoveUpRight } from 'lucide-react'
 import './HomePage.css'
-import { useNews }             from '../hooks/useNews'
-import { useServerStatus }     from '../hooks/useServerStatus'
+import { useNews } from '../hooks/useNews'
+import { useServerStatus } from '../hooks/useServerStatus'
 import type { LaunchProgressEvent } from '../hooks/useSkin'
 
 const STEP_LABELS: Record<string, string> = {
-  check:    'Vérification des fichiers…',
-  progress: 'Téléchargement du modpack…',
-  extract:  'Extraction des fichiers…',
-  patch:    'Mise à jour de Minecraft…',
+    check:    'Vérification des fichiers...',
+    progress: 'Téléchargement du modpack...',
+    extract:  'Extraction des fichiers...',
+    patch:    'Mise à jour de Minecraft...',
 }
 
 interface Props {
-  canPlayDev: boolean
+    canPlayDev: boolean
 }
 
 export default function HomePage({ canPlayDev }: Props) {
-  const { news, loading: newsLoading }     = useNews()
-  const { status, loading: serverLoading } = useServerStatus()
+    const { news, loading: newsLoading }     = useNews()
+    const { status, loading: serverLoading } = useServerStatus()
 
-  const [launching,    setLaunching]    = useState(false)
-  const [launchDev,    setLaunchDev]    = useState(false)  // true si le lancement en cours est la version DEV
-  const [progress,     setProgress]     = useState(-1)  // -1 = indéterminé
-  const [stepLabel,    setStepLabel]    = useState('')
-  const [launchErr,    setLaunchErr]    = useState('')
-  const [verifiedOnly, setVerifiedOnly] = useState(false)  // true = vérif terminée sans téléchargement
-  const hadDownload = useRef(false)
+    const [launching,    setLaunching]    = useState(false)
+    const [launchDev,    setLaunchDev]    = useState(false)  // true si le lancement en cours est la version DEV
+    const [progress,     setProgress]     = useState(-1)  // -1 = indéterminé
+    const [stepLabel,    setStepLabel]    = useState('')
+    const [launchErr,    setLaunchErr]    = useState('')
+    const [verifiedOnly, setVerifiedOnly] = useState(false)  // true = vérif terminée sans téléchargement
+    const hadDownload = useRef(false)
+    const gameStarted = useRef(false)
 
-  const dotState    = serverLoading ? 'loading' : status.online ? 'online' : 'offline'
-  const playerCount = status.online ? status.players    : 0
-  const maxPlayers  = status.online ? status.maxPlayers : 0
-  const ping        = status.online ? status.ping       : 0
+    const dotState    = serverLoading ? 'loading' : status.online ? 'online' : 'offline'
+    const playerCount = status.online ? status.players    : 0
+    const maxPlayers  = status.online ? status.maxPlayers : 0
+    const ping        = status.online ? status.ping       : 0
 
-  // Restaure l'état si un lancement est déjà en cours (navigation aller-retour)
-  useEffect(() => {
-    window.api.launchIsRunning().then(running => {
-      if (running) {
+    // Restaure l'état si un lancement est déjà en cours (navigation aller-retour)
+    useEffect(() => {
+        window.api.launchIsRunning().then(running => {
+            if (running) {
+                setLaunching(true)
+                setProgress(-1)
+                setStepLabel('Minecraft en cours...')
+                gameStarted.current = true
+            }
+        })
+    }, [])
+
+    // Abonnements aux événements de lancement
+    useEffect(() => {
+        const onProgress = (data: LaunchProgressEvent) => {
+            if (data.event === 'speed') return
+            if (gameStarted.current) return
+            // Track si un téléchargement réel a eu lieu
+            if (data.event !== 'check') hadDownload.current = true
+            const pct = (data.total != null && data.total > 0)
+                ? Math.min(100, Math.round(((data.task ?? 0) / data.total) * 100))
+                : -1
+            setProgress(pct)
+            // Indicateur "Fichiers vérifiés ✓" si check terminé sans download
+            if (data.event === 'check' && pct === 100 && !hadDownload.current) {
+                setStepLabel('✓ Fichiers vérifiés')
+                setVerifiedOnly(true)
+            } else {
+                setStepLabel(STEP_LABELS[data.event] ?? 'Préparation...')
+                if (data.event !== 'check') setVerifiedOnly(false)
+            }
+        }
+
+        const onLog = () => {
+            if (gameStarted.current) return
+            gameStarted.current = true
+            setProgress(-1)
+            setVerifiedOnly(false)
+            setStepLabel('Minecraft en cours...')
+        }
+
+        const onState = (data: { running: boolean }) => {
+            if (!data.running) {
+                gameStarted.current = false
+                setLaunching(false)
+                setProgress(-1)
+                setStepLabel('')
+            }
+        }
+
+        const onError = (data: { message: string }) => {
+            setLaunchErr(data.message)
+            gameStarted.current = false
+            setLaunching(false)
+            setProgress(-1)
+            setStepLabel('')
+        }
+
+        window.api.on('launch:progress', onProgress as (a: unknown) => void)
+        window.api.on('launch:state',    onState    as (a: unknown) => void)
+        window.api.on('launch:error',    onError    as (a: unknown) => void)
+        window.api.on('launch:log',      onLog      as (a: unknown) => void)
+
+        return () => {
+            window.api.off('launch:progress', onProgress as (a: unknown) => void)
+            window.api.off('launch:state',    onState    as (a: unknown) => void)
+            window.api.off('launch:error',    onError    as (a: unknown) => void)
+            window.api.off('launch:log',      onLog      as (a: unknown) => void)
+        }
+    }, [])
+
+    async function handlePlay(dev = false) {
+        if (launching) return
+        setLaunchErr('')
         setLaunching(true)
+        setLaunchDev(dev)
         setProgress(-1)
-        setStepLabel('Minecraft en cours…')
-      }
-    })
-  }, [])
+        setStepLabel('Initialisation...')
+        setVerifiedOnly(false)
+        hadDownload.current = false
+        gameStarted.current = false
 
-  // Abonnements aux événements de lancement
-  useEffect(() => {
-    const onProgress = (data: LaunchProgressEvent) => {
-      if (data.event === 'speed') return
-      // Track si un téléchargement réel a eu lieu
-      if (data.event !== 'check') hadDownload.current = true
-      const pct = (data.total != null && data.total > 0)
-        ? Math.min(100, Math.round(((data.task ?? 0) / data.total) * 100))
-        : -1
-      setProgress(pct)
-      // Indicateur "Fichiers vérifiés ✓" si check terminé sans download
-      if (data.event === 'check' && pct === 100 && !hadDownload.current) {
-        setStepLabel('✓ Fichiers vérifiés')
-        setVerifiedOnly(true)
-      } else {
-        setStepLabel(STEP_LABELS[data.event] ?? 'Préparation…')
-        if (data.event !== 'check') setVerifiedOnly(false)
-      }
+        const result = await window.api.launchStart(dev)
+        if (!result.ok) {
+            setLaunchErr(result.error ?? 'Erreur inconnue.')
+            setLaunching(false)
+            setProgress(-1)
+            setStepLabel('')
+        }
+        // Si ok: les events gèrent la progression
     }
 
-    const onState = (data: { running: boolean }) => {
-      if (!data.running) {
-        setLaunching(false)
-        setProgress(-1)
-        setStepLabel('')
-      }
-    }
+    return (
+        <div className="home">
+            <div className="home__bg" />
+            <div className="home__grid" />
 
-    const onError = (data: { message: string }) => {
-      setLaunchErr(data.message)
-      setLaunching(false)
-      setProgress(-1)
-      setStepLabel('')
-    }
+            {/* Zone centrale */}
+            <div className="home__center">
+                <div className="home__play-area">
 
-    window.api.on('launch:progress', onProgress as (a: unknown) => void)
-    window.api.on('launch:state',    onState    as (a: unknown) => void)
-    window.api.on('launch:error',    onError    as (a: unknown) => void)
+                    <div className="home__status-bar">
+                        <span className={`home__dot home__dot--${dotState}`} />
+                        <span className="home__status-text">
+                            {status.online
+                                ? <><strong className="font-mc">{playerCount}/{maxPlayers}</strong><span>en ligne</span></>
+                                : serverLoading
+                                    ? 'Connexion…'
+                                    : <strong>Serveur hors ligne</strong>
+                            }
+                        </span>
+                        <span className="home__status-divider" />
+                        <span className="home__server-id">SRV-EU</span>
+                        <span className="home__status-divider" />
+                        <span className="home__ping-group">
+                            <img src="./icons/ping-low.svg" alt="" className="home__ping" />
+                            <span className="home__ping-label">{ping > 0 ? `${ping} ms` : '-'}</span>
+                        </span>
+                    </div>
 
-    return () => {
-      window.api.off('launch:progress', onProgress as (a: unknown) => void)
-      window.api.off('launch:state',    onState    as (a: unknown) => void)
-      window.api.off('launch:error',    onError    as (a: unknown) => void)
-    }
-  }, [])
+                    {status.online && (
+                        <p className="home__motd">» <em>EarthKingdoms</em> - Rejoignez la lutte pour la suprématie mondiale.</p>
+                    )}
 
-  async function handlePlay(dev = false) {
-    if (launching) return
-    setLaunchErr('')
-    setLaunching(true)
-    setLaunchDev(dev)
-    setProgress(-1)
-    setStepLabel('Initialisation…')
-    setVerifiedOnly(false)
-    hadDownload.current = false
+                    <div className="home__hero">
+                        <span className="home__hero-eyebrow">Saison IV - Âge des Nations</span>
+                        <h1 className="home__hero-title">Bâtissez<br /><span className="home__hero-accent">Votre Nation</span></h1>
+                    </div>
 
-    const result = await window.api.launchStart(dev)
-    if (!result.ok) {
-      setLaunchErr(result.error ?? 'Erreur inconnue.')
-      setLaunching(false)
-      setProgress(-1)
-      setStepLabel('')
-    }
-    // Si ok: les events gèrent la progression
-  }
+                    {launchErr && (
+                        <div className="home__launch-error">{launchErr}</div>
+                    )}
 
-  return (
-    <div className="home">
-      <div className="home__bg" />
-      <div className="home__grid" />
-
-      {/* Zone centrale */}
-      <div className="home__center">
-        <div className="home__play-area">
-
-          <div className="home__status-bar">
-            <span className={`home__dot home__dot--${dotState}`} />
-            <span className="home__status-text">
-              {status.online
-                ? <><strong className="font-mc">{playerCount}/{maxPlayers}</strong><span>en ligne</span></>
-                : serverLoading
-                  ? 'Connexion…'
-                  : <strong>Serveur hors ligne</strong>
-              }
-            </span>
-            <span className="home__status-divider" />
-            <span className="home__server-id">SRV-EU</span>
-            <span className="home__status-divider" />
-            <span className="home__ping-group">
-              <img src="./icons/ping-low.svg" alt="" className="home__ping" />
-              <span className="home__ping-label">{ping > 0 ? `${ping} ms` : '-'}</span>
-            </span>
-          </div>
-
-          {status.online && (
-            <p className="home__motd">» <em>EarthKingdoms</em> - Rejoignez la lutte pour la suprématie mondiale.</p>
-          )}
-
-          <div className="home__hero">
-            <span className="home__hero-eyebrow">Saison IV - Âge des Nations</span>
-            <h1 className="home__hero-title">Bâtissez<br /><span className="home__hero-accent">Votre Empire</span></h1>
-          </div>
-
-          {launchErr && (
-            <div className="home__launch-error">{launchErr}</div>
-          )}
-
-          {!launching ? (
-            <div className="home__play-buttons">
-              <button
-                className="btn-play"
-                data-sound="play"
-                onClick={() => handlePlay(false)}
-                disabled={!status.online && !serverLoading}
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                  <polygon points="5 3 19 12 5 21 5 3"/>
-                </svg>
-                {serverLoading ? 'CHARGEMENT…' : status.online ? 'JOUER' : 'HORS LIGNE'}
-              </button>
-              {canPlayDev && (
-              <button
-                className="btn-play btn-play--dev"
-                data-sound="play"
-                onClick={() => handlePlay(true)}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                  <polygon points="5 3 19 12 5 21 5 3"/>
-                </svg>
-                JOUER - BETA
-              </button>
-              )}
+                    {!launching ? (
+                        <div className="home__play-buttons">
+                            <button
+                                className="btn-play"
+                                data-sound="play"
+                                onClick={() => handlePlay(false)}
+                                disabled={!status.online && !serverLoading}
+                            >
+                                <Play
+                                    size={18}
+                                    strokeWidth={3}
+                                    fill={status.online ? 'currentColor' : 'none'}
+                                />
+                                {serverLoading ? 'CHARGEMENT…' : status.online ? 'JOUER' : 'HORS LIGNE'}
+                            </button>
+                            {canPlayDev && (
+                                <button
+                                    className="btn-play btn-play--dev"
+                                    data-sound="play"
+                                    onClick={() => handlePlay(true)}
+                                >
+                                    <Play
+                                        size={18}
+                                        strokeWidth={3}
+                                        fill='currentColor'
+                                    />
+                                    JOUER - BETA
+                                </button>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="home__loading">
+                            <div className="home__loading-label">
+                                {launchDev && <span className="home__loading-dev-badge">BETA</span>}
+                                <span style={verifiedOnly ? { color: 'var(--success)' } : undefined}>
+                                     {stepLabel || 'Préparation…'}
+                                </span>
+                                {progress >= 0 && !verifiedOnly && <span className="home__loading-pct">{progress}%</span>}
+                            </div>
+                            <div className={`progress-bar${progress < 0 ? ' progress-bar--indeterminate' : ''}`}>
+                                <div
+                                    className="progress-bar__fill"
+                                    style={{ width: progress >= 0 ? `${Math.max(progress, 2)}%` : '100%' }}
+                                />
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
-          ) : (
-            <div className="home__loading">
-              <div className="home__loading-label">
-                {launchDev && <span className="home__loading-dev-badge">BETA</span>}
-                <span style={verifiedOnly ? { color: 'var(--success)' } : undefined}>
-                  {stepLabel || 'Préparation…'}
-                </span>
-                {progress >= 0 && !verifiedOnly && <span className="home__loading-pct">{progress}%</span>}
-              </div>
-              <div className={`progress-bar${progress < 0 ? ' progress-bar--indeterminate' : ''}`}>
-                <div
-                  className="progress-bar__fill"
-                  style={{ width: progress >= 0 ? `${Math.max(progress, 2)}%` : '100%' }}
-                />
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
 
-      {/* Sidebar news */}
-      <aside className="home__sidebar">
-        <div className="home__sidebar-header">
-          <span className="home__sidebar-label">Actualités</span>
-          {!newsLoading && <span className="home__sidebar-count">{news.length}</span>}
+            {/* Sidebar news */}
+            <aside className="home__sidebar">
+                <div className="home__sidebar-header">
+                    <span className="home__sidebar-label">
+                        <span className="home__sidebar-live" />
+                        Actualités
+                    </span>
+                    {!newsLoading && <span className="home__sidebar-count">{news.length}</span>}
+                </div>
+
+                <div className="home__news-list">
+                    {newsLoading && [0, 1, 2].map(i => <div key={i} className="news-skeleton" />)}
+
+                    {!newsLoading && news.length === 0 && (
+                        <div className="home__news-empty">
+                            <FileText size={28} strokeWidth={2} />
+                            <span>Aucune actualité pour le moment.</span>
+                        </div>
+                    )}
+
+                    {news.map((item, i) => (
+                        <article
+                            key={i}
+                            className={`news-card${i === 0 ? ' news-card--latest' : ''}${item.url ? ' news-card--link' : ''}`}
+                            style={{ animationDelay: `${Math.min(i, 6) * 60}ms` }}
+                            onClick={() => item.url && window.api.openExternal(item.url)}
+                        >
+                            <div className="news-card__meta">
+                                <span className="news-card__tag">{item.tag}</span>
+                                <span className="news-card__date">{item.date}</span>
+                            </div>
+                            <h3 className="news-card__title">{item.title}</h3>
+                            {item.desc && <p className="news-card__desc">{item.desc}</p>}
+                            {item.url && (
+                                <MoveUpRight size={16} strokeWidth={2} className="news-card__arrow" />
+                            )}
+                        </article>
+                    ))}
+                </div>
+            </aside>
         </div>
-        <div className="home__news-list">
-          {newsLoading && (
-            <p className="home__news-loading">Chargement…</p>
-          )}
-          {!newsLoading && news.length === 0 && (
-            <p className="home__news-loading">Aucune actualité disponible.</p>
-          )}
-          {news.map((item, i) => (
-            <article
-              key={i}
-              className="news-card"
-              onClick={() => item.url && window.api.openExternal(item.url)}
-              style={{ cursor: item.url ? 'pointer' : 'default' }}
-            >
-              <div className="news-card__meta">
-                <span className="news-card__tag">{item.tag}</span>
-                <span className="news-card__date">{item.date}</span>
-              </div>
-              <h3 className="news-card__title">{item.title}</h3>
-              {item.desc && <p className="news-card__desc">{item.desc}</p>}
-            </article>
-          ))}
-        </div>
-      </aside>
-    </div>
-  )
+    )
 }

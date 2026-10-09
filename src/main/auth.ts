@@ -104,20 +104,20 @@ export async function login(
       body:    JSON.stringify({ username, password }),
     })
   } catch {
-    return { ok: false, code: 0, message: 'Impossible de contacter le serveur. Vérifie ta connexion.' }
+    return { ok: false, code: 0, message: 'Impossible de contacter le serveur ! Vérifie ta connexion.' }
   }
 
   if (!res.ok) {
     const messages: Record<number, string> = {
       401: 'Identifiants incorrects.',
-      403: 'Compte désactivé ou email non vérifié.',
-      429: 'Trop de tentatives. Réessaie dans quelques minutes.',
-      500: 'Erreur serveur (500). Réessaie plus tard.',
-      502: 'Serveur inaccessible (502).',
-      503: 'Service indisponible (503).',
-      504: 'Timeout serveur (504).',
+      403: 'Accès refusé ! Vérifie que ton compte est activé et que ton e-mail est confirmé.',
+      429: 'Trop de tentatives ! Réessaie dans quelques minutes.',
+      500: 'Erreur interne du serveur (500) ! Réessaie plus tard.',
+      502: 'Le serveur est inaccessible (502) !',
+      503: 'Le service est temporairement indisponible (503) !',
+      504: 'Le serveur a mis trop de temps à répondre (504) !',
     }
-    return { ok: false, code: res.status, message: messages[res.status] ?? `Erreur ${res.status}.` }
+    return { ok: false, code: res.status, message: messages[res.status] ?? `Erreur ${res.status} !` }
   }
 
   const data = await res.json() as {
@@ -157,9 +157,9 @@ async function refreshToken(account: Account): Promise<Account | null> {
     const expiresSeconds = data.expires > 1e12 ? Math.floor(data.expires / 1000) : data.expires
     const updated: Account = {
       ...account,
-      token:               data.token,
-      tokenExpires:        expiresSeconds,
-      canAccessDevServer:  data.dev_server_access ?? account.canAccessDevServer,
+      token:              data.token,
+      tokenExpires:       expiresSeconds,
+      canAccessDevServer: data.dev_server_access ?? account.canAccessDevServer,
     }
     upsertAccount(updated)
     setStoredAccount(updated)
@@ -218,11 +218,8 @@ export async function getAccount(): Promise<Account | null> {
     if (refreshed) return refreshed
     if (account.tokenExpires > now) return account
   }
-
-  // Token expiré → retirer ce compte
   removeAccount(account.uuid)
-  setStoredAccount(null)
-  return null
+  return getAccount()
 }
 
 // ─── Game Auth Token ────────────────────────────────────────────────────────
@@ -240,24 +237,24 @@ export async function getGameAuthToken(account: Account): Promise<{ token: strin
       headers: { Authorization: `Bearer ${account.token}` },
     })
   } catch {
-    throw new Error('Impossible de contacter le serveur pour autoriser le lancement. Vérifie ta connexion.')
+    throw new Error('Impossible de contacter le serveur pour autoriser le lancement ! Vérifie ta connexion.')
   }
 
   if (!res.ok) {
     const messages: Record<number, string> = {
-      401: 'Session expirée, reconnecte-toi avant de relancer le jeu.',
-      409: 'Une autorisation de lancement est déjà en cours pour ce compte. Réessaie dans quelques secondes.',
-      429: 'Trop de tentatives de lancement. Réessaie dans quelques minutes.',
-      500: 'Erreur serveur (500) lors de l\'autorisation du lancement.',
-      502: 'Serveur inaccessible (502) lors de l\'autorisation du lancement.',
-      503: 'Service indisponible (503) lors de l\'autorisation du lancement.',
-      504: 'Timeout serveur (504) lors de l\'autorisation du lancement.',
+      401: 'Session expirée ! Reconnecte-toi avant de relancer le jeu.',
+      409: 'Une autorisation de lancement est déjà en cours pour ce compte ! Réessaie dans quelques secondes.',
+      429: 'Trop de tentatives de lancement ! Réessaie dans quelques minutes.',
+      500: 'Erreur interne du serveur (500) lors de l’autorisation du lancement.',
+      502: 'Le serveur est inaccessible (502) lors de l’autorisation du lancement.',
+      503: 'Le service est temporairement indisponible (503) lors de l’autorisation du lancement.',
+      504: 'Le serveur a mis trop de temps à répondre (504) lors de l’autorisation du lancement.',
     }
     throw new Error(messages[res.status] ?? `Erreur ${res.status} lors de l'autorisation du lancement.`)
   }
 
   const data = await res.json() as { token: string; expiresAt: number }
-  if (!data?.token) throw new Error('Réponse invalide du serveur (jeton de lancement manquant).')
+  if (!data?.token) throw new Error('Réponse invalide du serveur (token de lancement manquant).')
   return data
 }
 
