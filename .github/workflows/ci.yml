@@ -22,5 +22,7 @@ jobs:
       - run: npx tsc -p tsconfig.node.json --noEmit
       - run: npx tsc -p tsconfig.web.json --noEmit
 
+      - run: npm test
+
       - run: npm run lint
         continue-on-error: true # dette de code pré-existante (any, catch vides...) - ne bloque pas la CI pour l'instant

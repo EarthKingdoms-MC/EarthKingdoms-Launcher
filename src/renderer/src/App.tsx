@@ -227,6 +227,16 @@ export default function App() {
         return () => window.api.off('app:before-close', onBeforeClose as (a: unknown) => void)
     }, [settingsDirty])
 
+    // Le main process a retiré un compte (refus définitif du serveur) : l'interface
+    // se resynchronise sur la source de vérité au lieu de garder un état « connecté »
+    // périmé. Un jeu déjà lancé n'est pas concerné.
+    useEffect(() => {
+        const onSessionExpired = () => { void handleSessionLost() }
+        window.api.on('auth:session-expired', onSessionExpired as (a: unknown) => void)
+        return () => window.api.off('auth:session-expired', onSessionExpired as (a: unknown) => void)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+
     // A la fermeture de MC -> notif 6 sec du temps de jeu
     useEffect(() => {
         if (appState !== 'app') return
@@ -555,6 +565,7 @@ export default function App() {
                             onDirtyChange={setSettingsDirty}
                             blockedAction={blocked}
                             onResolveBlocked={resolveBlocked}
+                            canBeta={account!.canAccessDevServer}
                             onSessionLost={handleSessionLost}
                             onProfileDeleted={name => {
                                 setProfileToastLeaving(false)

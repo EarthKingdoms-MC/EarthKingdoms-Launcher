@@ -588,3 +588,36 @@
     flex-shrink: 0;
     white-space: nowrap;
 }
+/* ── Sélecteur de mode (Jeu / Bêta) ─────────────────────────────────────────
+   Réutilise l'interrupteur .settings__toggle des options Minecraft. */
+.settings__section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 12px;
+}
+.settings__section-head .settings__section-title {
+    margin-bottom: 0;
+}
+.settings__channel {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+.settings__channel-label {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    transition: color 200ms;
+}
+.settings__channel-label--on {
+    color: var(--text);
+}
+.settings__hint--channel {
+    display: block;
+    margin: -4px 0 12px;
+}

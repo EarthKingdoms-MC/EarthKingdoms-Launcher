@@ -1,13 +1,12 @@
 import { app, BrowserWindow, dialog, ipcMain, net, shell } from 'electron'
-import { join }    from 'path'
+import { join, basename } from 'path'
 import { gameRoot, instanceDir, migrateLegacyGameRoot, INSTANCE_NAME } from './paths'
 
 // Permet l'autoplay audio sans geste utilisateur → préchauffage pipeline au démarrage
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required')
 import { appendFileSync, mkdirSync, readdirSync, statSync, unlinkSync, rmSync, existsSync } from 'fs'
 import { totalmem } from 'os'
-import { request as httpsRequest } from 'https'
-import { randomUUID } from 'crypto'
+import { randomUUID, createHash } from 'crypto'
 import {
   store, migrateProfiles, getActiveProfile, BUILTIN_PROFILE_IDS,
   setBetaChannel, isBetaChannel, builtinIdFor, getActiveProfileId, setActiveProfileId,
@@ -18,7 +17,11 @@ import {
   LEVEL_LABELS, LEVEL_DESCS, PERF_LEVELS, isPerfLevel, recommendedRam,
 } from './perfProfiles'
 import { detectHardware } from './hardware'
-import { login, logout, getAccount, getActiveAccount, getAccounts, switchAccount, removeAccount, getLauncherUA, getGameAuthToken, forceRefreshActive, resetActiveToken } from './auth'
+import {
+  login, logout, getAccount, getActiveAccount, getAccountByUuid, getAccounts, switchAccount, removeAccount,
+  getLauncherUA, getGameAuthToken, resetActiveToken, authedRequest, toPublic, setAuthLogger, purgeLegacyAuthFiles,
+} from './auth'
+import { createSkinService, createSerialQueue, resolveSkinUrl, SKIN_MAX_BYTES } from './skins'
 
 /** net.fetch avec User-Agent launcher - permet le bypass Cloudflare bot protection */
 function ekFetch(url: string, init?: Parameters<typeof net.fetch>[1]): ReturnType<typeof net.fetch> {
@@ -26,12 +29,25 @@ function ekFetch(url: string, init?: Parameters<typeof net.fetch>[1]): ReturnTyp
   headers.set('User-Agent', getLauncherUA())
   return net.fetch(url, { ...init, headers })
 }
-import { startLaunch, stopLaunch, isRunning } from './launcherCore'
+import { startLaunch, stopLaunch, isRunning, gameSession } from './launcherCore'
 import { autoUpdater } from 'electron-updater'
 import type { Account, LaunchProfile } from './store'
 
 let mainWindow: BrowserWindow | null = null
 let launchStartTime = 0
+
+const LIVEMAP_ORIGIN = 'https://earthkingdoms-mc.fr'
+
+/** Les liens ouverts dans le navigateur système sont limités à http(s). */
+function isSafeExternalUrl(url: unknown): url is string {
+  if (typeof url !== 'string' || url.length > 2048) return false
+  try {
+    const u = new URL(url)
+    return u.protocol === 'https:' || u.protocol === 'http:'
+  } catch {
+    return false
+  }
+}
 
 // ── Garde-fou « modifications non sauvegardées » ─────────────────────────────
 //
@@ -80,12 +96,23 @@ const logBuffer: string[] = []
 const LOG_BUFFER_MAX = 2000
 
 function createWindow(): void {
+  // Icône de fenêtre : build/icon.png (source unique des icônes, voir electron-builder.yml).
+  // Windows et macOS prennent celle de l'exécutable / du bundle une fois empaqueté ;
+  // elle sert en développement et sous Linux.
+  const windowIcon = app.isPackaged
+    ? join(process.resourcesPath, 'icon.png')
+    : join(app.getAppPath(), 'build', 'icon.png')
+  if (process.platform === 'darwin' && !app.isPackaged) {
+    try { app.dock?.setIcon(windowIcon) } catch { /* cosmétique */ }
+  }
+
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 720,
     minWidth: 1024,
     minHeight: 640,
     frame: false,
+    icon: windowIcon,
     backgroundColor: '#0E0A2A',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -100,6 +127,35 @@ function createWindow(): void {
 
   const win = mainWindow
   allowWindowClose = false
+
+  // Sous macOS l'application survit à la fermeture de sa fenêtre (le jeu aussi) :
+  // sans cette remise à zéro, mainWindow pointerait sur une fenêtre détruite et le
+  // premier `mainWindow?.webContents.send(...)` d'un évènement du jeu lèverait
+  // « Object has been destroyed » dans le process main.
+  win.on('closed', () => { if (mainWindow === win) mainWindow = null })
+
+  // Le renderer ne doit jamais ouvrir de fenêtre ni naviguer hors de l'application :
+  // tout lien externe passe par open:external (http/https uniquement).
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (isSafeExternalUrl(url)) void shell.openExternal(url)
+    return { action: 'deny' }
+  })
+  win.webContents.on('will-navigate', (e, url) => {
+    const dev = process.env['ELECTRON_RENDERER_URL']
+    const internal = dev ? url.startsWith(dev) : url.startsWith('file://')
+    if (!internal) {
+      e.preventDefault()
+      if (isSafeExternalUrl(url)) void shell.openExternal(url)
+    }
+  })
+  // Seule la Livemap du site peut être embarquée, sans aucun accès Node ni preload.
+  win.webContents.on('will-attach-webview', (e, webPreferences, params) => {
+    delete (webPreferences as { preload?: string }).preload
+    webPreferences.nodeIntegration  = false
+    webPreferences.contextIsolation = true
+    webPreferences.sandbox          = true
+    if (!params.src.startsWith(LIVEMAP_ORIGIN + '/')) e.preventDefault()
+  })
 
   win.on('close', (e) => {
     if (allowWindowClose || !unsavedGuard) return
@@ -136,7 +192,11 @@ ipcMain.on('app:close-response', (_e, doClose: boolean) => {
 app.whenReady().then(() => {
   migrateLegacyGameRoot()
   initLauncherLog()
+  setAuthLogger(wlog)
   wlog(`Launcher démarré - v${app.getVersion()}`)
+  // Les versions précédentes écrivaient le token de session en clair dans ces
+  // fichiers, que le jeu n'a jamais lus : on les supprime.
+  purgeLegacyAuthFiles(legacyAuthFiles())
 
   // Complète les profils enregistrés avant l'arrivée des paliers de performance
   // et garantit la présence des trois profils intégrés, puis répercute le profil
@@ -182,39 +242,83 @@ ipcMain.on('window:maximize', () => {
 ipcMain.on('window:close', () => mainWindow?.close())
 
 // ── Lien externe ─────────────────────────────────────────────────────────────
-ipcMain.on('open:external', (_e, url: string) => shell.openExternal(url))
+ipcMain.on('open:external', (_e, url: unknown) => {
+  if (isSafeExternalUrl(url)) void shell.openExternal(url)
+  else wlog('open:external refusé (protocole non autorisé)')
+})
+
+/** Anciens emplacements du fichier .ek_auth (token en clair, plus écrit par ce launcher). */
+function legacyAuthFiles(): string[] {
+  return [join(app.getPath('appData'), '.ek_auth'), join(instanceDir(), '.ek_auth')]
+}
 
 // ── Persistance (electron-store) ─────────────────────────────────────────────
-ipcMain.handle('store:get', (_e, key: string) => store.get(key as keyof typeof store.store))
+// Le renderer n'a accès qu'à des préférences : jamais aux comptes, tokens,
+// profils ou catalogues, qui passent par des canaux dédiés côté main.
+const num = (min: number, max: number) => (v: unknown) =>
+  typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max
+const STORE_KEYS: Record<string, (v: unknown) => boolean> = {
+  ram:               num(1, 128),
+  resolutionWidth:   num(320, 7680),
+  resolutionHeight:  num(240, 4320),
+  javaPath:          (v) => v === null || isValidJavaPath(v),
+  soundEnabled:      (v) => typeof v === 'boolean',
+  closeOnLaunch:     (v) => typeof v === 'boolean',
+  lastSeenNewsCount: num(0, 1_000_000),
+}
+
+/** Exécutable Java existant (java / javaw) : ce chemin est lancé tel quel. */
+function isValidJavaPath(v: unknown): v is string {
+  if (typeof v !== 'string' || v.length === 0 || v.length > 1024) return false
+  if (!/^javaw?(\.exe)?$/i.test(basename(v))) return false
+  try { return statSync(v).isFile() } catch { return false }
+}
+
+ipcMain.handle('store:get', (_e, key: string) => {
+  if (!Object.prototype.hasOwnProperty.call(STORE_KEYS, key)) return undefined
+  return store.get(key as keyof typeof store.store)
+})
 ipcMain.handle('store:set', (_e, key: string, value: unknown) => {
+  if (!Object.prototype.hasOwnProperty.call(STORE_KEYS, key) || !STORE_KEYS[key](value)) {
+    wlog(`store:set refusé (clé ou valeur invalide) : ${String(key).slice(0, 40)}`)
+    return
+  }
   store.set(key as keyof typeof store.store, value as never)
 })
 
+
 // ── Authentification EarthKingdoms ───────────────────────────────────────────
-ipcMain.handle('auth:login', async (_e, username: string, password: string) => {
+// Le renderer ne reçoit jamais de token : uniquement une vue publique du compte
+// (voir PublicAccount). Se déconnecter, changer de compte ou perdre sa session ne
+// touche en aucun cas au jeu déjà lancé (voir gameSession.ts).
+ipcMain.handle('auth:login', async (_e, username: unknown, password: unknown) => {
+  if (typeof username !== 'string' || typeof password !== 'string' || username.length > 64 || password.length > 256) {
+    return { ok: false, code: 0, message: 'Identifiants invalides.' }
+  }
   const result = await login(username, password)
-  if ((result as any)?.ok) wlog(`Auth: connexion réussie - ${username}`)
-  else wlog(`Auth: échec connexion - ${username}`)
+  if (result.ok) {
+    wlog(`Auth: connexion réussie - ${result.account.username}`)
+    return { ok: true, account: toPublic(result.account) }
+  }
+  wlog(`Auth: échec connexion - code ${result.code}`)
   return result
 })
 
-ipcMain.handle('auth:getAccount', async () => {
-  return getAccount()
-})
+ipcMain.handle('auth:getAccount', async () => toPublic(await getAccount()))
 
 ipcMain.handle('auth:logout', () => {
+  const active = getActiveAccount()
   logout()
+  // Aucun arrêt ni invalidation du jeu : il vit de son propre jeton de lancement.
+  if (active) wlog(`Auth: déconnexion - ${active.username}${gameSession.isBusy() ? ' (jeu en cours, non affecté)' : ''}`)
+  return toPublic(getActiveAccount())
 })
 
-// Debug : réinitialise le token (fichiers .ek_auth + refresh forcé, sinon déconnexion)
+// Debug : réinitialise le token (refresh forcé ; seule une réponse définitive du
+// serveur déconnecte - une panne réseau laisse la session intacte).
 ipcMain.handle('auth:resetToken', async () => {
-  if (isRunning()) return { ok: false, error: 'Le jeu est en cours d\'exécution.' }
-  const files = [
-    join(app.getPath('appData'), '.ek_auth'),
-    join(instanceDir(), '.ek_auth'),
-  ]
-  const result = await resetActiveToken(files)
-  wlog(`Debug: reset token - ${result.status}`)
+  const result = await resetActiveToken(legacyAuthFiles())
+  wlog(`Debug: reset token - ${result.status ?? 'erreur'}`)
   return result
 })
 
@@ -246,12 +350,12 @@ ipcMain.handle('server:status', async () => {
 ipcMain.handle('status:player', async () => {
   const account = getActiveAccount()
   if (!account) return { ok: false, error: 'Non connecté.' }
+  const r = await authedRequest('/launcher/player', {}, account.uuid)
+  if (r.kind === 'no-session' || r.kind === 'session-expired') return { ok: false, error: 'Session expirée. Reconnecte-toi.' }
+  if (r.kind === 'unavailable') return { ok: false, error: 'Erreur réseau.' }
+  if (r.res.status < 200 || r.res.status >= 300) return { ok: false, error: `Erreur serveur (${r.res.status})` }
   try {
-    const res = await ekFetch('https://earthkingdoms-mc.fr/api/launcher/player', {
-      headers: { Authorization: `Bearer ${account.token}` },
-    })
-    if (!res.ok) return { ok: false, error: `Erreur serveur (${res.status})` }
-    const data = await res.json() as Record<string, unknown> | null
+    const data = await r.res.json() as Record<string, unknown> | null
 
     // Le serveur de jeu peut être injoignable (data = null) sans que ce soit une
     // erreur - dans ce cas on affiche quand même l'écran avec des "N/A" plutôt
@@ -268,7 +372,7 @@ ipcMain.handle('status:player', async () => {
       },
     }
   } catch {
-    return { ok: false, error: 'Erreur réseau.' }
+    return { ok: false, error: 'Réponse invalide du serveur.' }
   }
 })
 
@@ -283,159 +387,107 @@ ipcMain.handle('news:load', async () => {
   }
 })
 
-// ── Skin (contourne CSP/CORS) ─────────────────────────────────────────────────
-ipcMain.handle('skin:load', async (_e, username: string) => {
-  // Source de vérité : l'URL du skin marqué is_current dans l'historique
-  const account = getActiveAccount()
-  if (account) {
-    try {
-      const histRes = await ekFetch('https://earthkingdoms-mc.fr/api/skin/history/list', {
-        headers: { Authorization: `Bearer ${account.token}` },
-        cache: 'no-store',
-      })
-      if (histRes.ok) {
-        const data = await histRes.json() as { history: Array<{ id: string | number; skin_url: string; is_current: boolean }> }
-        const current = data.history?.find(h => h.is_current)
-        if (current?.skin_url) {
-          const fullUrl = current.skin_url.startsWith('http')
-            ? current.skin_url
-            : `https://earthkingdoms-mc.fr${current.skin_url}`
-          const res = await ekFetch(`${fullUrl}?t=${Date.now()}`, { cache: 'no-store' })
-          if (res.ok) {
-            const buf = await res.arrayBuffer()
-            return `data:image/png;base64,${Buffer.from(buf).toString('base64')}`
-          }
-          wlog(`Skin: échec téléchargement skin actuel (${fullUrl}) - HTTP ${res.status}`)
-        } else {
-          wlog(`Skin: historique vide ou sans entrée is_current pour ${username}`)
-        }
-      } else {
-        wlog(`Skin: historique inaccessible pour ${username} - HTTP ${histRes.status}`)
-      }
-    } catch (e) {
-      wlog(`Skin: erreur historique pour ${username} - ${e}`)
-    }
-  } else {
-    wlog(`Skin: aucun compte actif pour charger le skin de ${username}`)
-  }
-  // Fallback : URL basée sur le username
-  try {
-    const fallbackUrl = `https://earthkingdoms-mc.fr/skins/${username.toLowerCase()}.png?t=${Date.now()}`
-    const res = await ekFetch(fallbackUrl, { cache: 'no-store' })
-    if (!res.ok) {
-      wlog(`Skin: fallback introuvable (${fallbackUrl}) - HTTP ${res.status}`)
-      return null
-    }
-    const buf = await res.arrayBuffer()
-    return `data:image/png;base64,${Buffer.from(buf).toString('base64')}`
-  } catch (e) {
-    wlog(`Skin: erreur fallback pour ${username} - ${e}`)
-    return null
-  }
-})
+// ── Skins ─────────────────────────────────────────────────────────────────────
+//
+// Toute la logique (validation, doublons, restauration, vérification) vit dans
+// skins.ts. Les opérations d'écriture sont sérialisées : un double clic ou une
+// nouvelle tentative ne peut pas produire deux envois concurrents.
+const skinHashCache = new Map<string, string>()
+const runSkinWrite  = createSerialQueue()
 
-ipcMain.handle('skin:loadUrl', async (_e, url: string) => {
+async function fetchSkinBytes(url: string): Promise<{ status: number; bytes: Uint8Array } | null> {
   try {
-    const fullUrl = url.startsWith('http') ? url : `https://earthkingdoms-mc.fr${url}`
-    const res = await ekFetch(`${fullUrl}?t=${Date.now()}`, { cache: 'no-store' })
-    if (!res.ok) return null
-    const buf = await res.arrayBuffer()
-    return `data:image/png;base64,${Buffer.from(buf).toString('base64')}`
+    const res = await ekFetch(url, { cache: 'no-store' })
+    return { status: res.status, bytes: new Uint8Array(await res.arrayBuffer()) }
   } catch {
     return null
   }
+}
+
+function skinServiceFor(account: { uuid: string; username: string }) {
+  return createSkinService({
+    username:    account.username,
+    authed:      (path, init) => authedRequest(path, init, account.uuid),
+    fetchBytes:  fetchSkinBytes,
+    sha256:      (bytes) => createHash('sha256').update(bytes).digest('hex'),
+    newBoundary: () => `----EKBoundary${randomUUID()}`,
+    log:         (m) => wlog(m),
+  }, skinHashCache)
+}
+
+const toDataUrl = (bytes: Uint8Array) => `data:image/png;base64,${Buffer.from(bytes).toString('base64')}`
+const bustCache = (url: string) => `${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`
+
+ipcMain.handle('skin:load', async (_e, username: unknown) => {
+  // Source de vérité : l'URL du skin marqué is_current dans l'historique
+  const account = getActiveAccount()
+  if (account) {
+    const listed = await skinServiceFor(account).listHistory()
+    if (listed.ok) {
+      const current = listed.history.find(h => h.is_current)
+      const url = current ? resolveSkinUrl(current.skin_url) : null
+      if (url) {
+        const got = await fetchSkinBytes(bustCache(url))
+        if (got?.status === 200) return toDataUrl(got.bytes)
+        wlog(`Skin: échec téléchargement du skin actuel - HTTP ${got?.status ?? 'réseau'}`)
+      } else {
+        wlog('Skin: historique vide ou sans entrée is_current')
+      }
+    } else {
+      wlog(`Skin: historique inaccessible - ${listed.error}`)
+    }
+  }
+  // Repli : URL basée sur le pseudo (nom validé : jamais de chemin arbitraire).
+  const valid = (n: unknown): n is string => typeof n === 'string' && /^[A-Za-z0-9_]{1,32}$/.test(n)
+  const name = valid(username) ? username : account?.username
+  if (!valid(name)) return null
+  const got = await fetchSkinBytes(bustCache(`https://earthkingdoms-mc.fr/skins/${name.toLowerCase()}.png`))
+  if (!got || got.status !== 200) {
+    wlog(`Skin: repli introuvable - HTTP ${got?.status ?? 'réseau'}`)
+    return null
+  }
+  return toDataUrl(got.bytes)
+})
+
+ipcMain.handle('skin:loadUrl', async (_e, url: unknown) => {
+  if (typeof url !== 'string') return null
+  const full = resolveSkinUrl(url)      // uniquement l'hôte EarthKingdoms
+  if (!full) return null
+  const got = await fetchSkinBytes(bustCache(full))
+  return got && got.status === 200 ? toDataUrl(got.bytes) : null
 })
 
 ipcMain.handle('skin:historyList', async () => {
   const account = getActiveAccount()
   if (!account) return { ok: false, error: 'Non connecté.' }
-  try {
-    const res = await ekFetch('https://earthkingdoms-mc.fr/api/skin/history/list', {
-      headers: { Authorization: `Bearer ${account.token}` },
-    })
-    if (!res.ok) return { ok: false, error: `Erreur serveur (${res.status})` }
-    const data = await res.json() as { history: Array<{ id: string | number; skin_url: string; created_at: string | null; is_current: boolean }> }
-    return { ok: true, history: data.history }
-  } catch {
-    return { ok: false, error: 'Erreur réseau.' }
-  }
+  return skinServiceFor(account).listHistory()
 })
 
-ipcMain.handle('skin:historyRestore', async (_e, historyId: string) => {
+ipcMain.handle('skin:historyRestore', async (_e, historyId: unknown) => {
   const account = getActiveAccount()
-  if (!account) return { ok: false, error: 'Non connecté.' }
-  try {
-    const res = await ekFetch(`https://earthkingdoms-mc.fr/api/skin/history/restore/${encodeURIComponent(historyId)}`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${account.token}` },
-    })
-    wlog(`SkinHistory: restore ${historyId} - HTTP ${res.status}`)
-    if (res.ok) return { ok: true }
-    let msg = `Erreur serveur (${res.status})`
-    try { msg = (await res.json() as { error?: string }).error ?? msg } catch { /* empty */ }
-    return { ok: false, error: msg }
-  } catch {
-    return { ok: false, error: 'Erreur réseau.' }
-  }
+  if (!account) return { ok: false, error: 'Non connecté ! Reconnecte-toi dans le launcher.' }
+  const id = typeof historyId === 'number' ? String(historyId) : historyId
+  if (typeof id !== 'string' || !/^\d{1,12}$/.test(id)) return { ok: false, error: 'Identifiant de skin invalide.' }
+
+  const result = await runSkinWrite(() => skinServiceFor(account).restore(id))
+  wlog(`Skin: restauration ${id} - ${result.ok ? result.outcome : result.error}`)
+  return result
 })
 
-ipcMain.handle('skin:upload', async (_e, fileData: number[]) => {
+ipcMain.handle('skin:upload', async (_e, fileData: unknown) => {
   const account = getActiveAccount()
   if (!account) return { ok: false, error: 'Non connecté ! Reconnecte-toi dans le launcher.' }
 
-  const now = Math.floor(Date.now() / 1000)
-  wlog(`Skin: user=${account.username} token=${account.token?.slice(0, 10)}... expires=${account.tokenExpires} (dans ${account.tokenExpires - now}s)`)
+  // Accepte un Uint8Array/ArrayBuffer (chemin normal) ou un tableau d'octets (ancien renderer).
+  let bytes: Uint8Array
+  if (fileData instanceof Uint8Array)       bytes = fileData
+  else if (fileData instanceof ArrayBuffer) bytes = new Uint8Array(fileData)
+  else if (Array.isArray(fileData) && fileData.length <= SKIN_MAX_BYTES) bytes = Uint8Array.from(fileData as number[])
+  else return { ok: false, error: 'Fichier invalide.' }
 
-  try {
-    const boundary   = `----EKBoundary${Date.now()}`
-    const fileBuffer = Buffer.from(new Uint8Array(fileData))
-    const body = Buffer.concat([
-      Buffer.from(
-        `--${boundary}\r\n` +
-        `Content-Disposition: form-data; name="skin"; filename="${account.username.toLowerCase()}.png"\r\n` +
-        `Content-Type: image/png\r\n\r\n`
-      ),
-      fileBuffer,
-      Buffer.from(`\r\n--${boundary}--\r\n`),
-    ])
-
-    // Utilise https natif Node.js - évite les bugs de net.fetch avec Buffer + headers custom
-    const { status, text } = await new Promise<{ status: number; text: string }>((resolve, reject) => {
-      const req = httpsRequest(
-        'https://earthkingdoms-mc.fr/api/skin/upload',
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${account.token}`,
-            'Content-Type':  `multipart/form-data; boundary=${boundary}`,
-            'Content-Length': String(body.length),
-            'User-Agent':    getLauncherUA(),
-          },
-        },
-        (res) => {
-          let data = ''
-          res.on('data', (chunk: Buffer) => { data += chunk.toString() })
-          res.on('end', () => resolve({ status: res.statusCode ?? 0, text: data }))
-        }
-      )
-      req.on('error', reject)
-      req.write(body)
-      req.end()
-    })
-
-    wlog(`Skin: réponse serveur - HTTP ${status} - ${text.slice(0, 200)}`)
-    if (status >= 200 && status < 300) {
-      wlog(`Skin: upload réussi - ${account.username}`)
-      return { ok: true }
-    }
-    let msg = `Erreur serveur (${status})`
-    try { msg = (JSON.parse(text) as { error?: string }).error ?? msg } catch { /* silencieux */ }
-    wlog(`Skin: upload échoué - ${msg}`)
-    return { ok: false, error: msg }
-  } catch (e) {
-    wlog(`Skin: erreur réseau - ${e}`)
-    return { ok: false, error: 'Erreur réseau.' }
-  }
+  const result = await runSkinWrite(() => skinServiceFor(account).upload(bytes))
+  wlog(`Skin: envoi - ${result.ok ? result.outcome : result.error}`)
+  return result
 })
 
 // ── Paliers de performance ────────────────────────────────────────────────────
@@ -456,28 +508,47 @@ interface CatalogueEntry { url: string; size: number; hash: string; path: string
  */
 async function fetchModCatalogue(dev = false): Promise<CatalogueEntry[]> {
   try {
-    const account = getActiveAccount()
-    const headers: Record<string, string> = {}
-    if (account?.token) headers['Authorization'] = `Bearer ${account.token}`
-
     // La beta a son propre modpack côté serveur (voir launcherCore.filesInstance) :
     // son catalogue diffère de celui de la prod.
     const instance = dev ? 'EarthKingdomsV4-beta-dev' : 'EarthKingdomsV4-beta'
-    const res = await ekFetch(`https://earthkingdoms-mc.fr/launcher/files/?instance=${instance}`, { headers })
-    if (!res.ok) return []
-    const data = await res.json() as CatalogueEntry[]
+    const url      = `https://earthkingdoms-mc.fr/launcher/files/?instance=${instance}`
+
+    // Avec un compte : requête authentifiée (le serveur décide des fichiers admin
+    // d'après le token ; renouvelé au besoin). Sans compte : requête anonyme.
+    const account = getActiveAccount()
+    let status: number
+    let body: () => Promise<unknown>
+    if (account) {
+      const r = await authedRequest(url, {}, account.uuid)
+      if (r.kind !== 'response') return []        // hors ligne / session fermée
+      status = r.res.status
+      body   = () => r.res.json()
+    } else {
+      const res = await ekFetch(url)
+      status = res.status
+      body   = () => res.json()
+    }
+    if (status < 200 || status >= 300) return []
+    const parsed = await body()
+    if (!Array.isArray(parsed)) return []
+    const data = parsed as CatalogueEntry[]
 
     const optional = data.filter(f =>
       f.path?.startsWith('modoptionnel/') ||
       f.path?.startsWith('modadmin/')
     )
-    if (optional.length > 0) store.set('knownOptionalMods', optional.map(f => f.path))
+    // Un catalogue par canal : celui de la beta ne doit pas remplacer celui du jeu
+    // (il alimenterait les paliers et les compteurs du mauvais mode).
+    if (optional.length > 0) store.set(catalogueKey(dev), optional.map(f => f.path))
     return optional
   } catch {
     // Hors ligne : le dernier catalogue connu reste en place.
     return []
   }
 }
+
+const catalogueKey = (beta: boolean) =>
+  (beta ? 'knownOptionalModsBeta' : 'knownOptionalMods') as 'knownOptionalModsBeta' | 'knownOptionalMods'
 
 /**
  * Liste de mods réellement activée pour un profil.
@@ -487,7 +558,7 @@ async function fetchModCatalogue(dev = false): Promise<CatalogueEntry[]> {
 function effectiveMods(profile: LaunchProfile): string[] {
   if (profile.mods !== null) return profile.mods
 
-  const catalogue = (store.get('knownOptionalMods')   as string[]) ?? []
+  const catalogue = (store.get(catalogueKey(profile.beta === true)) as string[]) ?? []
   const enabled   = (store.get('enabledOptionalMods') as string[]) ?? []
 
   // Catalogue jamais récupéré (premier démarrage hors ligne) : on ne touche à
@@ -652,7 +723,7 @@ ipcMain.handle('perf:setGameOptions', (_e, values: Record<string, string>) => {
 
 /** Palier de chaque mod du catalogue connu - alimente les badges de l'onglet Mods. */
 ipcMain.handle('perf:modTiers', () => {
-  const catalogue = (store.get('knownOptionalMods') as string[]) ?? []
+  const catalogue = (store.get(catalogueKey(isBetaChannel())) as string[]) ?? []
   return Object.fromEntries(catalogue.map(path => [path, modTier(path)]))
 })
 
@@ -685,27 +756,50 @@ ipcMain.handle('perf:applyGameOptions', async () => {
 
 // ── Lancement Minecraft ───────────────────────────────────────────────────────
 ipcMain.handle('launch:start', async (_e, dev?: boolean) => {
-  if (!(await getAccount())) return { ok: false, error: 'Non connecté.' }
-  // Refresh systématique avant lancement : le serveur de jeu rejette les tokens
-  // qu'il juge expirés même si la date locale paraît encore valide.
-  const account = await forceRefreshActive()
+  // Compte prêt à l'emploi : renouvelé si son token approche de l'expiration, et
+  // jamais déconnecté sur une simple panne réseau (voir authService.getAccount).
+  const account = await getAccount()
   if (!account) return { ok: false, error: 'Non connecté.' }
 
+  // Réserve la session AVANT les appels réseau préalables : un double clic ne
+  // peut plus déclencher deux autorisations de lancement concurrentes.
+  if (!gameSession.acquire({ uuid: account.uuid, username: account.username })) {
+    return { ok: false, error: 'Minecraft est déjà en cours d\'exécution.' }
+  }
+
+  try {
+    return await prepareAndLaunch(account, dev === true)
+  } finally {
+    // Échec avant le démarrage du processus : on rend la session. Une fois le
+    // jeu lancé, c'est launcherCore qui la libère à sa fermeture.
+    if (!gameSession.isRunning()) gameSession.release()
+  }
+})
+
+/**
+ * Préparation puis démarrage du jeu pour `account`.
+ *
+ * Le jeu ne dépend pas de la session web du launcher après son démarrage : il
+ * n'emporte que le jeton de lancement à usage unique. Déconnexion, expiration ou
+ * renouvellement du token launcher, ou changement de compte, n'ont donc aucun
+ * effet sur lui - et inversement, sa fermeture ne touche pas aux comptes.
+ */
+async function prepareAndLaunch(account: Account, dev: boolean): Promise<{ ok: boolean; error?: string }> {
   // Le catalogue est réactualisé juste avant le lancement : c'est lui qui
   // détermine la liste de mods du palier, et il peut avoir bougé côté serveur.
   // Lancé en parallèle du GameAuthToken ci-dessous - les deux appels sont
   // indépendants, pas besoin de payer deux allers-retours réseau à la suite
   // avant de démarrer la JVM. fetchModCatalogue() avale déjà ses propres
   // erreurs (retourne [] en cas d'échec), donc rien à catcher ici.
-  const catalogueFetch = fetchModCatalogue(dev === true)
+  const catalogueFetch = fetchModCatalogue(dev)
 
-  // GameAuthToken : preuve courte durée (~90s) que le Web autorise CE lancement,
+  // GameAuthToken : preuve à usage unique (12 h côté Web) que le Web autorise CE lancement,
   // demandée au dernier moment (pas au login). Si le Web est injoignable ou
   // refuse, on n'initie PAS le lancement de Minecraft - jamais de jeton de
   // secours local, jamais de succès simulé.
   let gameAuthToken: string
   try {
-    const gameAuth = await getGameAuthToken(account)
+    const gameAuth = await getGameAuthToken(account.uuid)
     gameAuthToken = gameAuth.token
   } catch (err: any) {
     const message = err?.message ?? 'Impossible d\'autoriser le lancement auprès du serveur.'
@@ -714,21 +808,31 @@ ipcMain.handle('launch:start', async (_e, dev?: boolean) => {
   }
 
   await catalogueFetch
+
+  // Le compte a pu être déconnecté pendant la préparation : on ne démarre pas le
+  // jeu au nom d'une session que l'utilisateur vient de fermer. On repart des
+  // identifiants à jour (le token a pu être renouvelé entre-temps).
+  const current = getAccountByUuid(account.uuid)
+  if (!current) {
+    wlog('Launch: abandon - session fermée pendant la préparation')
+    return { ok: false, error: 'Session fermée pendant la préparation du lancement. Reconnecte-toi pour jouer.' }
+  }
+
   // Le lancement utilise les profils de son propre canal, quel que soit celui
   // affiché dans l'onglet Mods ; les clés globales lues par launcherCore (mods,
   // RAM…) sont donc recalculées pour ce canal avant de démarrer.
   const previousChannel = isBetaChannel()
-  setBetaChannel(dev === true)
+  setBetaChannel(dev)
   const profile = applyActiveProfile()
   setBetaChannel(previousChannel)
 
-  wlog(`Launch: démarrage - user=${account.username} profil=${profile.name} palier=${profile.perfLevel} ram=${profile.ram}Go java=${profile.javaPath ?? 'embarqué'}${dev ? ' [DEV]' : ''}`)
+  wlog(`Launch: démarrage - user=${current.username} profil=${profile.name} palier=${profile.perfLevel} ram=${profile.ram}Go java=${profile.javaPath ?? 'embarqué'}${dev ? ' [DEV]' : ''}`)
   logBuffer.length = 0  // vide le buffer au nouveau lancement
   launchStartTime = Date.now()
   let gameStarted = false
 
   const result = startLaunch(
-    account,
+    current,
     profile,
 
     (progress) => mainWindow?.webContents.send('launch:progress', progress),
@@ -765,16 +869,16 @@ ipcMain.handle('launch:start', async (_e, dev?: boolean) => {
       if (mainWindow?.isMinimized()) { mainWindow.restore(); mainWindow.focus() }
     },
 
-    dev === true,
+    dev,
     gameAuthToken
   )
 
   if (result.ok) {
-    mainWindow?.webContents.send('launch:state', { running: true, dev: dev === true })
+    mainWindow?.webContents.send('launch:state', { running: true, dev })
   }
 
   return result
-})
+}
 
 ipcMain.on('launch:stop', () => stopLaunch())
 
@@ -894,10 +998,10 @@ ipcMain.handle('profiles:list', () => {
  */
 ipcMain.handle('profiles:update', (_e, patch: Partial<LaunchProfile>) => {
   const safe: Partial<LaunchProfile> = {}
-  if (typeof patch.ram      === 'number') safe.ram      = patch.ram
-  if (typeof patch.resW     === 'number') safe.resW     = patch.resW
-  if (typeof patch.resH     === 'number') safe.resH     = patch.resH
-  if ('javaPath' in patch)                safe.javaPath = patch.javaPath ?? null
+  if (STORE_KEYS.ram(patch.ram))               safe.ram  = patch.ram as number
+  if (STORE_KEYS.resolutionWidth(patch.resW))  safe.resW = patch.resW as number
+  if (STORE_KEYS.resolutionHeight(patch.resH)) safe.resH = patch.resH as number
+  if ('javaPath' in patch && STORE_KEYS.javaPath(patch.javaPath ?? null)) safe.javaPath = patch.javaPath ?? null
   const { profile, created } = updateActiveProfile(safe)
   return { profile, created }
 })
@@ -967,14 +1071,18 @@ ipcMain.handle('profiles:setActive', (_e, id: string) => {
 // ── Multicompte ────────────────────────────────────────────────────────────────
 ipcMain.handle('auth:getAccounts', () => getAccounts())
 
-ipcMain.handle('auth:switchAccount', (_e, uuid: string) => {
+ipcMain.handle('auth:switchAccount', (_e, uuid: unknown) => {
+  if (typeof uuid !== 'string') return { ok: false }
   const account = switchAccount(uuid)
-  return account ? { ok: true, account } : { ok: false }
+  // Le compte précédent reste enregistré avec son propre token ; seul le compte
+  // actif change. Un jeu déjà lancé garde l'identité avec laquelle il a démarré.
+  return account ? { ok: true, account: toPublic(account) } : { ok: false }
 })
 
-ipcMain.handle('auth:removeAccount', (_e, uuid: string) => {
+ipcMain.handle('auth:removeAccount', (_e, uuid: unknown) => {
+  if (typeof uuid !== 'string') return { ok: false, nextAccount: null }
   const next = removeAccount(uuid)
-  return { ok: true, nextAccount: next }
+  return { ok: true, nextAccount: toPublic(next) }
 })
 
 // ── Rapport de bug ──────────────────────────────────────────────────────────
@@ -1026,8 +1134,13 @@ ipcMain.handle('update:check', async () => {
       const latestVersion  = data.tag_name.replace(/^v/, '')
       const currentVersion = app.getVersion()
       if (!isNewerVersion(latestVersion, currentVersion)) return { available: false }
-      const dmgAsset  = data.assets.find(a => a.name.endsWith('.dmg'))
-      const downloadUrl = dmgAsset?.browser_download_url
+      // Une release contient un DMG par architecture : on propose celui de ce Mac.
+      // (GitHub remplace les espaces des noms de fichiers par des points.)
+      const dmgAssets = data.assets.filter(a => a.name.endsWith('.dmg'))
+      const dmgAsset  = process.arch === 'arm64'
+        ? dmgAssets.find(a => a.name.includes('arm64'))
+        : dmgAssets.find(a => a.name.includes('x64')) ?? dmgAssets.find(a => !a.name.includes('arm64'))
+      const downloadUrl = (dmgAsset ?? dmgAssets[0])?.browser_download_url
         ?? 'https://github.com/EarthKingdoms-MC/EarthKingdoms-Launcher/releases/latest'
       wlog(`macOS update: v${currentVersion} → v${latestVersion}`)
       return { available: false, macUpdate: true, latestVersion, downloadUrl }

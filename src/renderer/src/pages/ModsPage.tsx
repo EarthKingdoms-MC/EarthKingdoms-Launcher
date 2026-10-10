@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import type { LaunchProfile, PerfLevel } from '../hooks/useSkin'
 import {Gauge, Sparkles, Cpu, ShieldLock, Layers, TriangleAlert, Settings, Plus } from 'lucide-react'
 import './ModsPage.css'
+import { CHANNELS } from '../channels'
 
 const TIER_LABELS: Record<PerfLevel, string> = {
     low:    'Optimisation',
@@ -256,7 +257,7 @@ export default function ModsPage({ canBeta, onProfileCreated, onOpenSettings }: 
                         </span>
                     )}
                     {canBeta && collapsed && (
-                        <span className="mods__pack-chip">{beta ? 'Bêta' : 'Jeu'}</span>
+                        <span className="mods__pack-chip">{beta ? CHANNELS.beta.label : CHANNELS.game.label}</span>
                     )}
                 </div>
                 <p className="mods__subtitle">
@@ -269,10 +270,10 @@ export default function ModsPage({ canBeta, onProfileCreated, onOpenSettings }: 
                                 <span className="mods__profiles-label">Modpack</span>
                                 <div className="mods__profiles-list">
                                     <button className={`profile-chip ${!beta ? 'profile-chip--active' : ''}`} onClick={() => setBeta(false)}>
-                                        Jeu
+                                        {CHANNELS.game.label}
                                     </button>
                                     <button className={`profile-chip ${beta ? 'profile-chip--active' : ''}`} onClick={() => setBeta(true)}>
-                                        Bêta
+                                        {CHANNELS.beta.label}
                                     </button>
                                 </div>
                             </div>

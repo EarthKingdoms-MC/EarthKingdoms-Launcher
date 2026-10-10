@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { setSoundEnabled } from '../utils/sounds'
 import UnsavedModal from '../components/UnsavedModal'
+import { CHANNELS, builtinProfileId, isBetaChannel, type Channel } from '../channels'
 
 function ramHint(ram: number): string {
     if (ram < 4)  return 'En dessous du minimum - risque de lag et de crash.'
@@ -97,6 +98,8 @@ interface Props {
      */
     blockedAction: { label: string } | null
     onResolveBlocked: (proceed: boolean) => void
+    /** Compte autorisé à jouer la bêta : affiche le sélecteur de mode. */
+    canBeta: boolean
     /** Le compte actif a été retiré côté main (reset token échoué) : retour à l'écran de connexion. */
     onSessionLost: () => void
     onProfileDeleted: (name: string) => void
@@ -117,8 +120,10 @@ export default function SettingsPage({
                                          savedResW, savedResH, onSaveRes,
                                          savedJavaPath, onSaveJava,
                                          onDirtyChange, blockedAction, onResolveBlocked,
-                                         onSessionLost, onProfileDeleted, onNotify,
+                                         canBeta, onSessionLost, onProfileDeleted, onNotify,
                                      }: Props) {
+    const [channel,         setChannel]         = useState<Channel>('game')
+    const [pendingChannel,  setPendingChannel]  = useState<Channel | null>(null)
     const [ram,             setRam]             = useState(savedRam)
     const [resPreset,       setResPreset]       = useState(() => getPresetIndex(savedResW, savedResH))
     const [resW,            setResW]            = useState(savedResW)
@@ -174,12 +179,17 @@ export default function SettingsPage({
     useEffect(() => { onDirtyChange(dirty) }, [dirty, onDirtyChange])
     useEffect(() => () => onDirtyChange(false), [onDirtyChange])
 
-    // Charge la RAM système, les profils, le son et les autres réglages au montage
+    // Charge la RAM système, les profils, le son et les autres réglages au montage.
+    // Le mode (jeu / bêta) est fixé côté main avant toute lecture de profil : la
+    // page démarre toujours sur le jeu, et le remet à la sortie pour que le reste
+    // du launcher ne modifie jamais les profils de la bêta par mégarde.
     useEffect(() => {
         window.api.systemTotalRam().then(v => setTotalRam(v)).catch(() => {})
         window.api.perfLevels().then(v => setLevelInfos(v)).catch(() => {})
-        loadProfiles()
-        loadGameOptions()
+        window.api.profilesSetChannel(false).then(() => {
+            loadProfiles()
+            loadGameOptions()
+        }).catch(() => {})
         window.api.storeGet('soundEnabled').then(v => {
             if (v !== undefined && v !== null) setSoundOn(Boolean(v))
         }).catch(() => {})
@@ -188,6 +198,7 @@ export default function SettingsPage({
         }).catch(() => {})
         window.api.systemGetStartupEnabled().then(v => setStartupOn(v)).catch(() => {})
         window.api.appVersion().then(v => setAppVersion(v)).catch(() => {})
+        return () => { window.api.profilesSetChannel(false).catch(() => {}) }
     }, [])
 
     const activeProfile   = profiles.find(p => p.id === activeProfileId) ?? null
@@ -248,6 +259,36 @@ export default function SettingsPage({
         } catch { /* silencieux */ }
     }
 
+    /**
+     * Bascule de mode : les profils, paliers et réglages affichés sont ceux du mode
+     * choisi, jamais un mélange. Le main process est mis sur le bon mode d'abord ;
+     * tout ce qui est lu ensuite (profils, mods, réglages graphiques) en dépend.
+     */
+    async function switchChannel(next: Channel) {
+        try {
+            await window.api.profilesSetChannel(isBetaChannel(next))
+            setChannel(next)
+            const list = await window.api.profilesList()
+            const active = list.profiles.find(p => p.id === list.activeId)
+            setProfiles(list.profiles)
+            setModCounts(list.modCounts)
+            if (active) adoptProfile(active)
+            else setActiveProfileId(list.activeId)
+            setShowNewProfile(false)
+            setNewProfileName('')
+        } catch {
+            onNotify({ type: 'error', message: 'Impossible de changer de mode.' })
+        }
+    }
+
+    function handleChannelChange(next: Channel) {
+        if (next === channel) return
+        // Même règle que pour un changement de profil : on ne remplace pas des
+        // valeurs que le joueur n'a pas encore enregistrées.
+        if (dirty) { setPendingChannel(next); return }
+        void switchChannel(next)
+    }
+
     /** Remet les champs sur les dernières valeurs enregistrées. */
     function discardChanges() {
         setRam(savedRam)
@@ -267,9 +308,12 @@ export default function SettingsPage({
 
     function finishGuard(proceed: boolean) {
         const profileId = pendingProfile
+        const channelId = pendingChannel
         setPendingProfile(null)
-        if (profileId) { if (proceed) switchProfile(profileId) }
-        else           { onResolveBlocked(proceed) }
+        setPendingChannel(null)
+        if (profileId)      { if (proceed) switchProfile(profileId) }
+        else if (channelId) { if (proceed) void switchChannel(channelId) }
+        else                { onResolveBlocked(proceed) }
     }
 
     async function handleGuardSave() {
@@ -300,7 +344,7 @@ export default function SettingsPage({
         if (!target || target.builtin) return
         const deletedName = target.name
         await window.api.profilesDelete(activeProfileId)
-        const fallback = await window.api.profilesSetActive('perf-medium')
+        const fallback = await window.api.profilesSetActive(builtinProfileId(channel, 'medium'))
         adoptProfile(fallback)
         await loadProfiles()
         onProfileDeleted(deletedName)
@@ -568,11 +612,13 @@ export default function SettingsPage({
 
     const guardAction = pendingProfile
         ? 'Changer de profil remplacera les valeurs affichées.'
-        : blockedAction?.label ?? ''
+        : pendingChannel
+            ? 'Changer de mode remplacera les valeurs affichées.'
+            : blockedAction?.label ?? ''
 
     return (
         <div className="settings">
-            {(pendingProfile || blockedAction) && (
+            {(pendingProfile || pendingChannel || blockedAction) && (
                 <UnsavedModal
                     action={guardAction}
                     saving={savingGuard}
@@ -589,14 +635,44 @@ export default function SettingsPage({
                 Volontairement hors de la grille deux colonnes : les trois cartes
                 de palier ont besoin de toute la largeur pour rester lisibles. */}
                 <section className="settings__section settings__section--full">
-                    <h2 className="settings__section-title">
-                        <SectionIcon icon={Gauge} color="orange" />
-                        Niveau de performance
-                    </h2>
+                    <div className="settings__section-head">
+                        <h2 className="settings__section-title">
+                            <SectionIcon icon={Gauge} color="orange" />
+                            Niveau de performance
+                        </h2>
+
+                        {/* Même interrupteur que les options Minecraft (settings__toggle). */}
+                        {canBeta && (
+                            <div className="settings__channel" role="group" aria-label="Mode concerné">
+                                <span className={`settings__channel-label ${channel === 'game' ? 'settings__channel-label--on' : ''}`}>
+                                    {CHANNELS.game.label}
+                                </span>
+                                <button
+                                    className={`settings__toggle ${channel === 'beta' ? 'settings__toggle--on' : ''}`}
+                                    onClick={() => handleChannelChange(channel === 'beta' ? 'game' : 'beta')}
+                                    role="switch"
+                                    aria-checked={channel === 'beta'}
+                                    aria-label={`Basculer entre ${CHANNELS.game.label} et ${CHANNELS.beta.label}`}
+                                    title={`Réglages du mode ${CHANNELS[channel === 'beta' ? 'game' : 'beta'].label}`}
+                                >
+                                    <span className="settings__toggle-knob" />
+                                </button>
+                                <span className={`settings__channel-label ${channel === 'beta' ? 'settings__channel-label--on' : ''}`}>
+                                    {CHANNELS.beta.label}
+                                </span>
+                            </div>
+                        )}
+                    </div>
+                    {canBeta && channel === 'beta' && (
+                        <span className="settings__hint settings__hint--channel">
+                            Profils et réglages du mode {CHANNELS.beta.label}, séparés de ceux du mode {CHANNELS.game.label}.
+                            Ils s'appliquent quand tu lances le jeu depuis le bouton {CHANNELS.beta.label}.
+                        </span>
+                    )}
 
                     <div className="tiers">
                         {levelInfos.map(info => {
-                            const id      = `perf-${info.level}`
+                            const id      = builtinProfileId(channel, info.level)
                             const profile = profiles.find(p => p.id === id)
                             const active  = activeProfileId === id
                             return (

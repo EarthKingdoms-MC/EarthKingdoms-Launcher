@@ -13,12 +13,15 @@ interface Props {
 
 type UploadState = 'idle' | 'validating' | 'ready' | 'uploading' | 'success' | 'error'
 
+// Limite du serveur (api/skin/upload) : au-delà, l'envoi serait refusé après coup.
+const MAX_SKIN_BYTES = 100 * 1024
+
 async function validateSkin(file: File): Promise<string | null> {
     if (!file.name.toLowerCase().endsWith('.png') && file.type !== 'image/png') {
         return 'Le fichier doit être un PNG.'
     }
-    if (file.size > 2 * 1024 * 1024) {
-        return `Fichier trop lourd (${(file.size / 1024).toFixed(0)} Ko) - max 2 Mo.`
+    if (file.size > MAX_SKIN_BYTES) {
+        return `Fichier trop lourd (${(file.size / 1024).toFixed(0)} Ko) - max 100 Ko.`
     }
     return new Promise((resolve) => {
         const img = new Image()
@@ -75,6 +78,8 @@ export default function SkinModal({ username, skinRefreshKey, onSkinUploaded, on
     const [serverError,  setServerError]  = useState<string | null>(null)
     const [history,      setHistory]      = useState<SkinHistoryItem[]>([])
     const [restoring,    setRestoring]    = useState<string | null>(null)
+    const [restoreError, setRestoreError] = useState<string | null>(null)
+    const [resultNote,   setResultNote]   = useState<string | null>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
     // Taille du viewer 3D : suit la zone qui le contient
     const viewerWrapRef = useRef<HTMLDivElement>(null)
@@ -160,9 +165,13 @@ export default function SkinModal({ username, skinRefreshKey, onSkinUploaded, on
         setServerError(null)
         try {
             const buf    = await selectedFile.arrayBuffer()
-            const data   = Array.from(new Uint8Array(buf))
-            const result = await window.api.skinUpload(data)
+            const result = await window.api.skinUpload(new Uint8Array(buf))
             if (result.ok) {
+                // Le serveur a pu reconnaître un skin déjà présent dans l'historique :
+                // on l'a alors simplement sélectionné, sans créer de doublon.
+                setResultNote(result.outcome === 'unchanged'
+                    ? 'Ce skin est déjà ton skin actuel : rien n\'a été modifié.'
+                    : null)
                 setUploadState('success')
                 // Lecture locale immédiate - affichage sans attendre le fetch réseau
                 const reader = new FileReader()
@@ -191,15 +200,24 @@ export default function SkinModal({ username, skinRefreshKey, onSkinUploaded, on
         if (restoring) return
         const sid = String(id)
         setRestoring(sid)
-        const result = await window.api.skinHistoryRestore(sid)
-        if (result.ok) {
-            setUploadedTexture(null)
-            const next = localRefreshKey + 1
-            setLocalRefreshKey(next)
-            onSkinUploaded?.()
-            await loadHistory()
+        setRestoreError(null)
+        try {
+            const result = await window.api.skinHistoryRestore(sid)
+            if (result.ok) {
+                setUploadedTexture(null)
+                const next = localRefreshKey + 1
+                setLocalRefreshKey(next)
+                onSkinUploaded?.()
+                await loadHistory()
+            } else {
+                // Avant : l'échec était avalé en silence, le skin semblait « ne pas changer ».
+                setRestoreError(result.error)
+            }
+        } catch {
+            setRestoreError('Erreur inattendue. Réessaie.')
+        } finally {
+            setRestoring(null)
         }
-        setRestoring(null)
     }
 
     function handleReset() {
@@ -209,6 +227,7 @@ export default function SkinModal({ username, skinRefreshKey, onSkinUploaded, on
         setServerError(null)
         setUploadState('idle')
         setUploadedTexture(null)
+        setResultNote(null)
         if (fileInputRef.current) fileInputRef.current.value = ''
     }
 
@@ -288,7 +307,9 @@ export default function SkinModal({ username, skinRefreshKey, onSkinUploaded, on
                             <div className="skinm__upload-success">
                                 <CircleCheck size={40} strokeWidth={2} />
                                 <span className="skinm__upload-success-title">Skin appliqué !</span>
-                                <span className="skinm__upload-success-sub">Reconnecte-toi en jeu pour voir le changement.</span>
+                                <span className="skinm__upload-success-sub">
+                                    {resultNote ?? 'Reconnecte-toi en jeu pour voir le changement.'}
+                                </span>
                                 <button className="btn-secondary" onClick={onClose}>Fermer</button>
                             </div>
                         ) : (
@@ -338,7 +359,7 @@ export default function SkinModal({ username, skinRefreshKey, onSkinUploaded, on
                                     >
                                         <Upload size={32} strokeWidth={2} />
                                         <span>Glisser un fichier PNG ici</span>
-                                        <span className="skinm__upload-sub">ou cliquer pour parcourir · 64×64 px · max 2 Mo</span>
+                                        <span className="skinm__upload-sub">ou cliquer pour parcourir · 64×64 px · max 100 Ko</span>
                                     </div>
                                 )}
 
@@ -366,6 +387,9 @@ export default function SkinModal({ username, skinRefreshKey, onSkinUploaded, on
                                                 />
                                             ))}
                                         </div>
+                                        {restoreError && (
+                                            <span className="skinm__upload-error" role="alert">{restoreError}</span>
+                                        )}
                                         <span className="skinm__hist-hint">Clique sur un skin pour le restaurer</span>
                                     </div>
                                 )}

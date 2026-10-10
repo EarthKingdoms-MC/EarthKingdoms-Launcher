@@ -1,12 +1,24 @@
-import { app, screen } from 'electron'
+import { screen } from 'electron'
 import path    from 'path'
 import fs      from 'fs'
 import { store } from './store'
 import type { Account, LaunchProfile } from './store'
 import { gcArgs, applyGameOptions, needsInitialGameOptions } from './perfProfiles'
-import { getActiveAccount, getLauncherUA } from './auth'
+import { getLauncherUA } from './auth'
 import { ensureDevServerEntry } from './devServer'
 import { gameRoot, instanceDir as getInstanceDir, INSTANCE_NAME } from './paths'
+import { createGameSession } from './gameSession'
+
+/**
+ * Identifiants du lancement en cours, figés au démarrage. Le patch de fetch
+ * ci-dessous les utilise à la place du compte actif du launcher : changer de
+ * compte ou se déconnecter pendant un téléchargement ne doit ni faire basculer
+ * un lancement déjà commencé sur les droits d'un autre compte, ni lui retirer les siens.
+ */
+let launchAuth: { token: string; isAdmin: boolean } | null = null
+
+/** Session de jeu unique - voir gameSession.ts pour le contrat de découplage. */
+export const gameSession = createGameSession()
 
 // Patch global.fetch pour mc-java-core :
 //  1. Force HTTPS (le JSON contient des URLs http://)
@@ -47,15 +59,14 @@ const _nativeFetch = global.fetch
     input.includes('earthkingdoms-mc.fr/launcher/files/') &&
     input.includes('instance=')
   ) {
-    const account = getActiveAccount()
-    const isAdmin = account?.isAdmin === true
+    const isAdmin = launchAuth?.isAdmin === true
 
     // Ajoute l'User-Agent launcher sur toutes les requêtes vers earthkingdoms-mc.fr
     // pour le bypass Cloudflare bot protection
     const ua = getLauncherUA()
     const patchedHeaders = new Headers((init as RequestInit | undefined)?.headers)
     patchedHeaders.set('User-Agent', ua)
-    if (account?.token) patchedHeaders.set('Authorization', `Bearer ${account.token}`)
+    if (launchAuth?.token) patchedHeaders.set('Authorization', `Bearer ${launchAuth.token}`)
     const patchedInit = { ...(init as RequestInit | undefined), headers: patchedHeaders }
 
     return _nativeFetch(input, patchedInit as RequestInit).then(async res => {
@@ -120,15 +131,14 @@ export interface LaunchProgressEvent {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-let currentLaunch: LaunchInstance | null = null
-
+/** true dès qu'un lancement a démarré (téléchargements puis jeu). */
 export function isRunning(): boolean {
-  return currentLaunch !== null
+  return gameSession.isRunning()
 }
 
+/** Arrêt explicite demandé par l'utilisateur ou le launcher - jamais par l'authentification. */
 export function stopLaunch(): void {
-  currentLaunch?.kill?.()
-  currentLaunch = null
+  gameSession.stop()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -141,14 +151,14 @@ export function startLaunch(
   onClose:       (code: number | null) => void,
   onError:       (err: string) => void,
   dev = false,
-  // Jeton courte durée (~90s) obtenu du Web juste avant l'appel à startLaunch,
+  // Jeton à usage unique (12 h côté Web, voir game-token/route.ts) obtenu du Web juste avant l'appel à startLaunch,
   // distinct du LauncherToken de session (account.token). Vérifié localement
-  // par Core sans rappel au Web. Ne JAMAIS le confondre avec ek.launcher.token
-  // ni l'écrire dans .ek_auth (qui reste dédié au LauncherToken existant).
+  // par Core sans rappel au Web. C'est le SEUL credential transmis au jeu : le
+  // token de session du launcher ne lui est ni transmis ni écrit sur disque.
   gameAuthToken?: string
 ): { ok: boolean; error?: string } {
 
-  if (isRunning()) return { ok: false, error: 'Minecraft est déjà en cours d\'exécution.' }
+  if (gameSession.isRunning()) return { ok: false, error: 'Minecraft est déjà en cours d\'exécution.' }
 
   const { ram, javaPath, perfLevel } = profile
 
@@ -160,11 +170,17 @@ export function startLaunch(
 
   if (dev) ensureDevServerEntry(instanceDir)
 
+  // Le jeu ne reçoit PAS le token de session du launcher. Core ne l'utilise nulle
+  // part (voir docs/architecture.md) et le placer sur la ligne de commande de la
+  // JVM l'exposerait à la liste des processus, aux rapports de crash (hs_err) et
+  // aux logs partagés. Seul le jeton de lancement à usage unique (gameAuthToken)
+  // lui est transmis. Valeur fixe non secrète : mc-java-core exige un
+  // access_token, et Minecraft ne s'en sert pas hors serveur « online ».
   const authenticator = {
     name:          account.username,
     uuid:          account.uuid,
-    access_token:  account.token,
-    token_expires: account.tokenExpires,
+    access_token:  'ek-launcher-no-session',
+    token_expires: 0,
     meta: {
       type:     'EarthKingdoms',
       online:   false,
@@ -179,12 +195,10 @@ export function startLaunch(
   // JVM args : GC réglé par le palier de performance (voir perfProfiles.gcArgs)
   // + Java 17 add-opens (obligatoire Forge 1.20.1)
   const jvmArgs = [
-    // Token EarthKingdoms (auth serveur)
-    `-Dek.launcher.token=${account.token}`,
     `-Dek.launcher.username=${account.username}`,
     '-Dearthkingdoms.api.url=https://earthkingdoms-mc.fr/api',
-    // GameAuthToken (~90s) : preuve que le Web a autorisé CE lancement,
-    // distincte du LauncherToken ci-dessus. Absente si l'appel a échoué -
+    // GameAuthToken (12 h, usage unique) : preuve que le Web a autorisé CE lancement,
+    // distincte du token de session du launcher. Absente si l'appel a échoué -
     // dans ce cas startLaunch n'est de toute façon pas appelé (voir index.ts).
     ...(gameAuthToken ? [`-Dek.launcher.gameAuthToken=${gameAuthToken}`] : []),
 
@@ -274,9 +288,11 @@ export function startLaunch(
   // pas ici - c'est un geste explicite depuis les paramètres (perf:applyGameOptions).
   if (needsInitialGameOptions(instanceDir)) applyGameOptions(instanceDir, perfLevel, profile.gameOptions)
 
+  launchAuth = { token: account.token, isAdmin: account.isAdmin }
+
   try {
     const launch = new MCCore.Launch()
-    currentLaunch = launch
+    gameSession.attach(launch)
 
     // mc-java-core émet (task, total, element) comme args séparés.
     // On n'envoie PAS element via IPC (objet potentiellement non-sérialisable).
@@ -319,14 +335,15 @@ export function startLaunch(
       // d'EventEmitter. On passe donc explicitement par EventEmitter, qui est
       // la même méthode à l'exécution.
       ;(process as NodeJS.EventEmitter).off('unhandledRejection', onUnhandledRejection)
-      currentLaunch = null
+      launchAuth = null
+      gameSession.release()
       fn()
     }
 
     // mc-java-core appelle this.start() sans await → les rejections non catchées
     // n'atteignent pas notre .catch(). Ce handler les intercepte au niveau process.
     const onUnhandledRejection = (reason: unknown) => {
-      if (currentLaunch !== launch) return
+      if (handled) return
       finish(() => onError(formatError(reason)))
     }
     process.on('unhandledRejection', onUnhandledRejection)
@@ -339,11 +356,6 @@ export function startLaunch(
       finish(() => onError(formatError(err)))
     })
 
-    // Écrit le fichier .ek_auth aux deux emplacements attendus par le mod MC
-    const ekAuth = JSON.stringify({ token: account.token, username: account.username, expires: account.tokenExpires })
-    try { fs.writeFileSync(path.join(app.getPath('appData'), '.ek_auth'), ekAuth, 'utf8') } catch { /* ignore */ }
-    try { fs.mkdirSync(instanceDir, { recursive: true }); fs.writeFileSync(path.join(instanceDir, '.ek_auth'), ekAuth, 'utf8') } catch { /* ignore */ }
-
     // Fire-and-forget - les events gèrent tout
     launch.Launch(options).catch((err: any) => {
       finish(() => onError(formatError(err)))
@@ -352,7 +364,8 @@ export function startLaunch(
     return { ok: true }
 
   } catch (err: any) {
-    currentLaunch = null
+    launchAuth = null
+    gameSession.release()
     return { ok: false, error: typeof err === 'string' ? err : (err?.message ?? String(err)) }
   }
 }

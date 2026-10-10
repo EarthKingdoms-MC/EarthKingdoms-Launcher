@@ -1,13 +1,22 @@
 import { useState, useEffect } from 'react'
 
+/**
+ * Compte tel que vu par le renderer : jamais de token (il reste dans le process
+ * main). `stale` = session expirée localement et non renouvelable pour l'instant
+ * (hors ligne) ; le compte n'est pas déconnecté pour autant.
+ */
 export interface Account {
     username:            string
     uuid:                string
-    token:               string
-    tokenExpires:        number
     isAdmin:             boolean
     canAccessDevServer:  boolean
+    stale?:              boolean
 }
+
+/** Résultat d'une opération sur les skins (envoi ou restauration). */
+export type SkinOpResult =
+    | { ok: true;  outcome: 'unchanged' | 'restored' | 'uploaded'; verified: boolean | null }
+    | { ok: false; error: string }
 
 export interface ServerStatus {
     online:     boolean
@@ -123,7 +132,7 @@ declare global {
 
             authLogin(username: string, password: string): Promise<AuthLoginResult>
             authGetAccount(): Promise<Account | null>
-            authLogout(): Promise<void>
+            authLogout(): Promise<Account | null>
             authResetToken(): Promise<{ ok: boolean; error?: string; status?: 'refreshed' | 'logged_out' | 'no_account' }>
             authGetAccounts(): Promise<Array<{ username: string; uuid: string; isAdmin: boolean }>>
             authSwitchAccount(uuid: string): Promise<{ ok: boolean; account?: Account }>
@@ -138,9 +147,9 @@ declare global {
             newsLoad(): Promise<string | null>
             skinLoad(username: string): Promise<string | null>
             skinLoadUrl(url: string): Promise<string | null>
-            skinUpload(data: number[]): Promise<{ ok: boolean; error?: string }>
+            skinUpload(data: Uint8Array): Promise<SkinOpResult>
             skinHistoryList(): Promise<{ ok: boolean; history?: SkinHistoryItem[]; error?: string }>
-            skinHistoryRestore(id: string): Promise<{ ok: boolean; error?: string }>
+            skinHistoryRestore(id: string): Promise<SkinOpResult>
 
             launchStart(dev?: boolean): Promise<{ ok: boolean; error?: string }>
             launchStop(): void

@@ -3,6 +3,14 @@ import { contextBridge, ipcRenderer } from 'electron'
 // Garde une ref des wrappers pour que off() retrouve le bon listener IPC
 const _wrappers = new Map<Function, (...args: any[]) => void>()
 
+// Seuls ces canaux main → renderer sont relayés : le renderer ne peut pas
+// s'abonner à un canal IPC arbitraire.
+const EVENT_CHANNELS = new Set([
+  'launch:progress', 'launch:log', 'launch:close', 'launch:state', 'launch:error',
+  'update:progress', 'app:before-close',
+  'auth:session-expired',
+])
+
 contextBridge.exposeInMainWorld('api', {
   // Fenêtre
   minimize: () => ipcRenderer.send('window:minimize'),
@@ -37,7 +45,7 @@ contextBridge.exposeInMainWorld('api', {
   // Skin
   skinLoad:           (username: string) => ipcRenderer.invoke('skin:load', username),
   skinLoadUrl:        (url: string)      => ipcRenderer.invoke('skin:loadUrl', url),
-  skinUpload:         (data: number[])   => ipcRenderer.invoke('skin:upload', data),
+  skinUpload:         (data: Uint8Array) => ipcRenderer.invoke('skin:upload', data),
   skinHistoryList:    ()                 => ipcRenderer.invoke('skin:historyList'),
   skinHistoryRestore: (id: string)       => ipcRenderer.invoke('skin:historyRestore', id),
 
@@ -107,12 +115,14 @@ contextBridge.exposeInMainWorld('api', {
 
   // Listeners main → renderer (on/off correctement appairés pour éviter les fuites)
   on: (channel: string, cb: (...args: unknown[]) => void) => {
+    if (!EVENT_CHANNELS.has(channel)) return
     if (!_wrappers.has(cb)) {
       _wrappers.set(cb, (_e: unknown, ...args: unknown[]) => cb(...args))
     }
     ipcRenderer.on(channel, _wrappers.get(cb)!)
   },
   off: (channel: string, cb: (...args: unknown[]) => void) => {
+    if (!EVENT_CHANNELS.has(channel)) return
     const wrapper = _wrappers.get(cb)
     if (wrapper) ipcRenderer.removeListener(channel, wrapper)
   },

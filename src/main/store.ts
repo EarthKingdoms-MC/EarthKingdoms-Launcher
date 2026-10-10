@@ -3,18 +3,13 @@ import { safeStorage } from 'electron'
 import { recommendedRam } from './perfProfiles'
 import type { PerfLevel } from './perfProfiles'
 
-export interface Account {
-  username:        string
-  uuid:            string
-  token:           string
-  tokenExpires:    number  // timestamp Unix en secondes
-  isAdmin:         boolean
-  // Indicatif UI (affichage du bouton DEV) - jamais une source d'autorité :
-  // le téléchargement des fichiers dev revérifie ce même token côté serveur
-  // (voir hasDevServerAccess() dans index.php), et le serveur Minecraft dev
-  // est protégé séparément par whitelist.
-  canAccessDevServer: boolean
-}
+// Le type Account vit dans authService.ts (module sans dépendance Electron) ;
+// il est ré-exporté ici pour les imports existants. Le champ canAccessDevServer
+// n'est qu'un indicatif d'interface : le serveur revérifie le token à chaque
+// téléchargement de fichiers dev, et le serveur Minecraft dev est protégé
+// séparément par whitelist.
+import type { Account } from './authService'
+export type { Account }
 
 export interface LaunchProfile {
   id:        string
@@ -128,8 +123,10 @@ interface Schema {
   closeOnLaunch:          boolean
   /** Le joueur a validé (ou refusé) la proposition de palier au premier démarrage. */
   perfConfigured:         boolean
-  /** Dernier catalogue de mods optionnels connu - permet d'appliquer un palier hors ligne. */
+  /** Dernier catalogue de mods optionnels connu du jeu - permet d'appliquer un palier hors ligne. */
   knownOptionalMods:      string[]
+  /** Idem pour la beta : son modpack a son propre catalogue, qui ne doit pas écraser celui du jeu. */
+  knownOptionalModsBeta:  string[]
 }
 
 export const store = new Store<Schema>({
@@ -150,6 +147,7 @@ export const store = new Store<Schema>({
     closeOnLaunch:          false,
     perfConfigured:         false,
     knownOptionalMods:      [],
+    knownOptionalModsBeta:  [],
   }
 })
 
@@ -177,10 +175,12 @@ function decryptToken(token: string): string {
   try {
     return safeStorage.decryptString(Buffer.from(token, 'base64'))
   } catch {
-    // Valeur historique non chiffrée (avant ce correctif), ou coffre-fort
-    // d'une autre machine/OS - retournée telle quelle plutôt que de faire
-    // planter la lecture du compte.
-    return token
+    // Valeur historique non chiffrée (avant ce correctif) : un token launcher est
+    // un hexadécimal de 64 caractères, on le garde tel quel. Toute autre valeur
+    // est un chiffré que ce coffre-fort ne sait pas lire (autre machine/OS,
+    // trousseau refusé) : on ne l'envoie surtout pas au serveur comme s'il
+    // s'agissait d'un token - le compte sera simplement à reconnecter.
+    return /^[0-9a-f]{64}$/i.test(token) ? token : ''
   }
 }
 

@@ -1,15 +1,29 @@
 import crypto from 'crypto'
 import fs from 'fs'
-import { app, net } from 'electron'
-import { store, Account, getStoredAccounts, setStoredAccounts, getStoredAccount, setStoredAccount } from './store'
+import { request as httpsRequest } from 'https'
+import { app, net, BrowserWindow } from 'electron'
+import { store, getStoredAccounts, setStoredAccounts, getStoredAccount, setStoredAccount } from './store'
+import {
+  createAuthService, toPublicAccount,
+  type Account, type AuthEvent, type HttpInit, type HttpResponse, type PublicAccount,
+} from './authService'
 
-const API = 'https://earthkingdoms-mc.fr/api'
+const ORIGIN = 'https://earthkingdoms-mc.fr'
+const API = `${ORIGIN}/api`
+const REQUEST_TIMEOUT_MS = 30_000
+
+/**
+ * Chemin relatif à l'API (« /auth/... ») ou URL absolue sur l'origine EarthKingdoms
+ * (utile pour /launcher/files, hors de /api). Tout autre hôte est refusé : le
+ * Bearer du launcher ne doit jamais partir ailleurs.
+ */
+function resolveUrl(path: string): string {
+  if (path.startsWith('/') && !path.startsWith('//')) return `${API}${path}`
+  if (path.startsWith(`${ORIGIN}/`)) return path
+  throw new Error('URL non autorisée')
+}
 
 export const getLauncherUA = (): string => `EarthKingdomsLauncher/${app.getVersion()}`
-
-// Durées (secondes)
-const REFRESH_THRESHOLD = 3600  // refresh préventif si < 1h restante
-const GRACE_PERIOD      = 1800  // on tente encore un refresh 30 min après expiration
 
 /** UUID déterministe identique à l'ancien launcher (OfflinePlayer MD5 v3) */
 function makeUUID(username: string): string {
@@ -23,224 +37,156 @@ function makeUUID(username: string): string {
   ].join('-')
 }
 
-async function apiFetch(path: string, options?: RequestInit): Promise<Response> {
-  const headers = new Headers(options?.headers)
+// ─── Transport HTTP ─────────────────────────────────────────────────────────
+
+/** Corps binaire (multipart) : https natif, net.fetch gérant mal Buffer + en-têtes custom. */
+function binaryRequest(path: string, init: HttpInit): Promise<HttpResponse> {
+  const body = Buffer.from(init.body as Uint8Array)
+  return new Promise((resolve, reject) => {
+    const req = httpsRequest(
+      resolveUrl(path),
+      {
+        method:  init.method ?? 'POST',
+        headers: { ...init.headers, 'User-Agent': getLauncherUA(), 'Content-Length': String(body.length) },
+        timeout: REQUEST_TIMEOUT_MS,
+      },
+      (res) => {
+        const chunks: Buffer[] = []
+        res.on('data', (c: Buffer) => chunks.push(c))
+        res.on('end', () => {
+          const text = Buffer.concat(chunks).toString('utf8')
+          resolve({ status: res.statusCode ?? 0, json: async () => JSON.parse(text) })
+        })
+        res.on('error', reject)
+      }
+    )
+    req.on('timeout', () => req.destroy(new Error('timeout')))
+    req.on('error', reject)
+    req.write(body)
+    req.end()
+  })
+}
+
+async function transport(path: string, init: HttpInit = {}): Promise<HttpResponse> {
+  if (init.body instanceof Uint8Array) return binaryRequest(path, init)
+
+  const headers = new Headers(init.headers)
   headers.set('User-Agent', getLauncherUA())
-  return net.fetch(`${API}${path}`, { ...options, headers } as Parameters<typeof net.fetch>[1])
+  const res = await net.fetch(resolveUrl(path), {
+    method:  init.method,
+    headers,
+    body:    init.body as string | undefined,
+    signal:  AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  })
+  return { status: res.status, json: () => res.json() }
 }
 
-// ─── Helpers multicompte ────────────────────────────────────────────────────
+// ─── Service (câblage réel) ─────────────────────────────────────────────────
 
-/** Migre l'ancien format mono-compte vers le nouveau format multi-compte si nécessaire. */
-function migrateIfNeeded(): void {
-  const accounts   = getStoredAccounts()
-  const oldAccount = getStoredAccount()
-  if (accounts.length === 0 && oldAccount) {
-    setStoredAccounts([oldAccount])
-    store.set('activeAccountId', oldAccount.uuid)
+let logSink: (message: string) => void = () => {}
+/** Branche le journal du launcher (jamais de token dans les messages). */
+export function setAuthLogger(fn: (message: string) => void): void { logSink = fn }
+
+function broadcast(channel: string, payload: unknown): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) win.webContents.send(channel, payload)
   }
 }
 
-/** Récupère le compte actif depuis la liste (synchrone, sans refresh). */
-export function getActiveAccount(): Account | null {
-  migrateIfNeeded()
-  const accounts = getStoredAccounts()
-  const activeId =  store.get('activeAccountId') as string | null
-  if (!activeId || accounts.length === 0) return null
-  return accounts.find(a => a.uuid === activeId) ?? null
-}
-
-/** Met à jour un compte dans la liste (upsert par uuid). */
-function upsertAccount(updated: Account): void {
-  const accounts = getStoredAccounts()
-  const idx = accounts.findIndex(a => a.uuid === updated.uuid)
-  if (idx >= 0) accounts[idx] = updated
-  else accounts.push(updated)
-  setStoredAccounts(accounts)
-}
-
-/** Retourne la liste des comptes pour affichage (sans tokens). */
-export function getAccounts(): Array<{ username: string; uuid: string; isAdmin: boolean }> {
-  migrateIfNeeded()
-  const accounts = getStoredAccounts()
-  return accounts.map(({ username, uuid, isAdmin }) => ({ username, uuid, isAdmin }))
-}
-
-/** Définit le compte actif par uuid. */
-export function switchAccount(uuid: string): Account | null {
-  const accounts = getStoredAccounts()
-  if (accounts.find(a => a.uuid === uuid)) {
-    store.set('activeAccountId', uuid)
-    return accounts.find(a => a.uuid === uuid) ?? null
-  }
-  return null
-}
-
-/** Retire un compte de la liste. Retourne le nouveau compte actif (ou null). */
-export function removeAccount(uuid: string): Account | null {
-  const accounts = getStoredAccounts().filter(a => a.uuid !== uuid)
-  setStoredAccounts(accounts)
-  const activeId = store.get('activeAccountId') as string | null
-  if (activeId === uuid) {
-    const next = accounts[0] ?? null
-    store.set('activeAccountId', next?.uuid ?? null)
-    setStoredAccount(next)
-    return next
-  }
-  return getActiveAccount()
-}
-
-// ─── Login ─────────────────────────────────────────────────────────────────
-
-export async function login(
-  username: string,
-  password: string
-): Promise<{ ok: true; account: Account } | { ok: false; code: number; message: string }> {
-  let res: Response
-  try {
-    res = await apiFetch('/auth/launcher/login', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ username, password }),
-    })
-  } catch {
-    return { ok: false, code: 0, message: 'Impossible de contacter le serveur ! Vérifie ta connexion.' }
-  }
-
-  if (!res.ok) {
-    const messages: Record<number, string> = {
-      401: 'Identifiants incorrects.',
-      403: 'Accès refusé ! Vérifie que ton compte est activé et que ton e-mail est confirmé.',
-      429: 'Trop de tentatives ! Réessaie dans quelques minutes.',
-      500: 'Erreur interne du serveur (500) ! Réessaie plus tard.',
-      502: 'Le serveur est inaccessible (502) !',
-      503: 'Le service est temporairement indisponible (503) !',
-      504: 'Le serveur a mis trop de temps à répondre (504) !',
-    }
-    return { ok: false, code: res.status, message: messages[res.status] ?? `Erreur ${res.status} !` }
-  }
-
-  const data = await res.json() as {
-    token: string; expires: number; username: string; is_admin: boolean; dev_server_access?: boolean
-  }
-  // L'API retourne expires en ms si > 10^12, on normalise en secondes
-  const expiresSeconds = data.expires > 1e12 ? Math.floor(data.expires / 1000) : data.expires
-  const account: Account = {
-    username:            data.username,
-    uuid:                makeUUID(data.username),
-    token:               data.token,
-    tokenExpires:        expiresSeconds,
-    isAdmin:             data.is_admin,
-    canAccessDevServer:  data.dev_server_access ?? false,
-  }
-
-  upsertAccount(account)
-  store.set('activeAccountId', account.uuid)
-  setStoredAccount(account)  // compat legacy
-
-  return { ok: true, account }
-}
-
-// ─── Refresh ────────────────────────────────────────────────────────────────
-
-async function refreshToken(account: Account): Promise<Account | null> {
-  try {
-    const res = await apiFetch('/auth/launcher/refresh-token', {
-      method:  'POST',
-      headers: { Authorization: `Bearer ${account.token}` },
-    })
-    if (!res.ok) return null
-    const data = await res.json() as {
-      success: boolean; token: string; expires: number; dev_server_access?: boolean
-    }
-    if (!data.success) return null
-    const expiresSeconds = data.expires > 1e12 ? Math.floor(data.expires / 1000) : data.expires
-    const updated: Account = {
-      ...account,
-      token:              data.token,
-      tokenExpires:       expiresSeconds,
-      canAccessDevServer: data.dev_server_access ?? account.canAccessDevServer,
-    }
-    upsertAccount(updated)
-    setStoredAccount(updated)
-    return updated
-  } catch {
-    return null
+function handleEvent(event: AuthEvent): void {
+  if (event.type === 'session-expired') {
+    // Le compte vient d'être retiré côté main : l'interface doit se resynchroniser,
+    // sans quoi elle garderait un état « connecté » contradictoire.
+    broadcast('auth:session-expired', { uuid: event.uuid, username: event.username })
   }
 }
 
 /**
- * Force un refresh du token du compte actif, sans tenir compte de la date
- * d'expiration locale (le serveur peut considérer le token expiré alors que
- * l'horloge locale dit le contraire). Retourne le compte actif à jour, ou le
- * compte inchangé si le refresh échoue (le lancement du jeu reste alors tenté).
+ * Une seule fois, après `app.whenReady()` (safeStorage n'est pas disponible avant) :
+ * rapatrie l'ancien compte mono-compte vers la liste, puis EFFACE la copie legacy.
+ * Garder deux copies du token faisait diverger l'état d'authentification et
+ * pouvait ressusciter un compte déconnecté.
  */
-export async function forceRefreshActive(): Promise<Account | null> {
-  const account = getActiveAccount()
-  if (!account) return null
-  return (await refreshToken(account)) ?? account
+let migrated = false
+function migrateLegacyAccount(): void {
+  if (migrated) return
+  migrated = true
+  const legacy = getStoredAccount()
+  if (!legacy) return
+  if (getStoredAccounts().length === 0) {
+    setStoredAccounts([legacy])
+    store.set('activeAccountId', legacy.uuid)
+  }
+  setStoredAccount(null)
 }
+
+let service: ReturnType<typeof createAuthService> | null = null
+function svc() {
+  if (service) return service
+  migrateLegacyAccount()
+  service = createAuthService({
+    getAccounts: () => getStoredAccounts(),
+    setAccounts: (accounts) => setStoredAccounts(accounts),
+    getActiveId: () => (store.get('activeAccountId') as string | null) ?? null,
+    setActiveId: (uuid) => { store.set('activeAccountId', uuid) },
+    transport,
+    now:         () => Math.floor(Date.now() / 1000),
+    makeUuid:    makeUUID,
+    onEvent:     handleEvent,
+    log:         (m) => logSink(m),
+  })
+  return service
+}
+
+const nowSeconds = () => Math.floor(Date.now() / 1000)
+
+// ─── API du module ──────────────────────────────────────────────────────────
+
+/** Compte actif tel qu'enregistré (synchrone, sans appel réseau). Réservé au main. */
+export function getActiveAccount(): Account | null { return svc().getActive() }
+
+/** Vue sans token pour le renderer. */
+export function toPublic(account: Account | null): PublicAccount | null {
+  return account ? toPublicAccount(account, nowSeconds()) : null
+}
+
+export const login          = (username: string, password: string) => svc().login(username, password)
+export const getAccount     = () => svc().getAccount()
+export const getAccounts    = () => svc().listPublic()
+export const getAccountByUuid = (uuid: string): Account | null => svc().findAccount(uuid)
+export const switchAccount  = (uuid: string) => svc().switchTo(uuid)
 
 /**
- * Debug : réinitialise le token du compte actif.
- *  - supprime les fichiers .ek_auth (appData + instances) qui peuvent contenir un token périmé
- *  - tente un refresh forcé ; s'il échoue, le compte est retiré (reconnexion nécessaire)
+ * Retire un compte (ou le compte actif) et ses credentials locaux.
+ * Ne touche JAMAIS au processus de jeu : le jeu n'a pas besoin de la session web
+ * (il utilise son propre jeton de lancement à usage unique) et continue de tourner.
  */
-export async function resetActiveToken(
-  authFiles: string[]
-): Promise<{ ok: boolean; status: 'refreshed' | 'logged_out' | 'no_account' }> {
-  for (const f of authFiles) {
-    try { fs.rmSync(f, { force: true }) } catch { /* ignore */ }
-  }
-  const account = getActiveAccount()
-  if (!account) return { ok: true, status: 'no_account' }
-
-  const refreshed = await refreshToken(account)
-  if (refreshed) return { ok: true, status: 'refreshed' }
-
-  removeAccount(account.uuid)
-  return { ok: true, status: 'logged_out' }
+export function removeAccount(uuid: string): Account | null { return svc().remove(uuid, 'remove') }
+export function logout(uuid?: string): Account | null {
+  const target = uuid ?? svc().getActive()?.uuid ?? null
+  return target ? svc().remove(target, 'logout') : null
 }
 
-// ─── getAccount (appelé au démarrage) ───────────────────────────────────────
-
-export async function getAccount(): Promise<Account | null> {
-  migrateIfNeeded()
-  const account = getActiveAccount()
-  if (!account) return null
-
-  const now = Math.floor(Date.now() / 1000)
-
-  if (account.tokenExpires > now + REFRESH_THRESHOLD) return account
-
-  if (account.tokenExpires > now - GRACE_PERIOD) {
-    const refreshed = await refreshToken(account)
-    if (refreshed) return refreshed
-    if (account.tokenExpires > now) return account
-  }
-  removeAccount(account.uuid)
-  return getAccount()
-}
+/** Requête authentifiée pour un compte donné (par défaut : le compte actif). */
+export const authedRequest = (path: string, init?: HttpInit, uuid?: string) =>
+  svc().authedRequest(path, init, uuid)
 
 // ─── Game Auth Token ────────────────────────────────────────────────────────
-// Jeton courte durée (~90s) prouvant que le Web a autorisé ce lancement pour
+// Jeton à usage unique (12 h côté Web, voir game-token/route.ts) prouvant que le Web a autorisé ce lancement pour
 // cet utilisateur, vérifié localement par Core (mod) sans rappel au Web à
 // chaque connexion. Généré juste avant chaque lancement du jeu (pas au login).
-// Distinct du LauncherToken de session existant : ne remplace rien, ne touche
-// pas à .ek_auth ni au stockage de compte.
+// Distinct du token de session du launcher : c'est le SEUL credential que le jeu
+// reçoit, et il n'est jamais renouvelé ni révoqué par la session du launcher.
 
-export async function getGameAuthToken(account: Account): Promise<{ token: string; expiresAt: number }> {
-  let res: Response
-  try {
-    res = await apiFetch('/auth/launcher/game-token', {
-      method:  'POST',
-      headers: { Authorization: `Bearer ${account.token}` },
-    })
-  } catch {
-    throw new Error('Impossible de contacter le serveur pour autoriser le lancement ! Vérifie ta connexion.')
-  }
+export async function getGameAuthToken(uuid: string): Promise<{ token: string; expiresAt: number }> {
+  const r = await svc().authedRequest('/auth/launcher/game-token', { method: 'POST' }, uuid)
 
-  if (!res.ok) {
+  if (r.kind === 'no-session')      throw new Error('Non connecté ! Reconnecte-toi dans le launcher.')
+  if (r.kind === 'session-expired') throw new Error('Session expirée ! Reconnecte-toi avant de relancer le jeu.')
+  if (r.kind === 'unavailable')     throw new Error('Impossible de contacter le serveur pour autoriser le lancement ! Vérifie ta connexion.')
+
+  const { res } = r
+  if (res.status < 200 || res.status >= 300) {
     const messages: Record<number, string> = {
       401: 'Session expirée ! Reconnecte-toi avant de relancer le jeu.',
       409: 'Une autorisation de lancement est déjà en cours pour ce compte ! Réessaie dans quelques secondes.',
@@ -253,15 +199,40 @@ export async function getGameAuthToken(account: Account): Promise<{ token: strin
     throw new Error(messages[res.status] ?? `Erreur ${res.status} lors de l'autorisation du lancement.`)
   }
 
-  const data = await res.json() as { token: string; expiresAt: number }
-  if (!data?.token) throw new Error('Réponse invalide du serveur (token de lancement manquant).')
-  return data
+  const data = await res.json().catch(() => null) as { token?: unknown; expiresAt?: unknown } | null
+  if (!data || typeof data.token !== 'string' || !data.token) {
+    throw new Error('Réponse invalide du serveur (token de lancement manquant).')
+  }
+  return { token: data.token, expiresAt: typeof data.expiresAt === 'number' ? data.expiresAt : 0 }
 }
 
-// ─── Logout ─────────────────────────────────────────────────────────────────
+/**
+ * Debug : réinitialise le token du compte actif.
+ *  - supprime d'éventuels anciens fichiers .ek_auth (versions précédentes du launcher) ;
+ *  - tente un refresh forcé. Seul un refus définitif du serveur déconnecte ;
+ *    une erreur réseau est rapportée sans toucher à la session.
+ */
+export async function resetActiveToken(
+  authFiles: string[]
+): Promise<{ ok: boolean; status?: 'refreshed' | 'logged_out' | 'no_account'; error?: string }> {
+  for (const f of authFiles) {
+    try { fs.rmSync(f, { force: true }) } catch { /* ignore */ }
+  }
+  const account = svc().getActive()
+  if (!account) return { ok: true, status: 'no_account' }
 
-export function logout(uuid?: string): Account | null {
-  const target = uuid ?? (getActiveAccount()?.uuid ?? null)
-  if (!target) return null
-  return removeAccount(target)
+  const outcome = await svc().refresh(account.uuid)
+  if (outcome.kind === 'ok')        return { ok: true, status: 'refreshed' }
+  if (outcome.kind === 'transient') return { ok: false, error: 'Serveur injoignable. Ta session est conservée, réessaie plus tard.' }
+  if (outcome.kind === 'gone')      return { ok: true, status: 'no_account' }
+
+  svc().remove(account.uuid, 'expired')
+  return { ok: true, status: 'logged_out' }
+}
+
+/** Supprime les fichiers .ek_auth laissés par d'anciennes versions (token en clair). */
+export function purgeLegacyAuthFiles(paths: string[]): void {
+  for (const f of paths) {
+    try { fs.rmSync(f, { force: true }) } catch { /* ignore */ }
+  }
 }

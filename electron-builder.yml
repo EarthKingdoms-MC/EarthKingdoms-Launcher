@@ -1,6 +1,8 @@
 appId: com.earthkingdoms.launcher
 productName: EarthKingdoms Launcher
-publisher: EarthKingdoms Inc.
+# L'éditeur affiché par Windows (installateur, « Applications installées ») vient de
+# author.name dans package.json. Une clé `publisher` à la racine n'existe pas dans le
+# schéma d'electron-builder et fait échouer toute la validation du packaging.
 publish:
   provider: github
   owner: EarthKingdoms-MC
@@ -12,22 +14,39 @@ directories:
 files:
   - out/**/*
 extraResources:
-  - from: public/background.png
-    to: background.png
+  # Icône de fenêtre (BrowserWindow.icon, utile sous Linux) - voir createWindow().
+  # L'ancienne copie de background.png ici (5 Mo) n'était lue par aucun code : le
+  # fond est servi depuis le renderer (public/background.png, déjà dans app.asar).
+  - from: build/icon.png
+    to: icon.png
 
+# Source unique des icônes : build/icon.png (logo 1400x1400). electron-builder en
+# dérive le .ico (Windows), le .icns (macOS) et les tailles PNG (Linux).
 win:
   target: nsis
-  icon: build/icon.ico
+  icon: build/icon.png
 
 mac:
-  target: dmg
-  icon: build/icon.icns
+  # Apple Silicon ET Intel : sans liste explicite, le DMG est produit pour
+  # l'architecture du runner (arm64 sur macos-latest) et ne s'ouvre pas sur un Mac Intel.
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+  icon: build/icon.png
+  category: public.app-category.games
+  artifactName: ${productName}-${version}-mac-${arch}.${ext}
+
+# Signature ad hoc quand aucun certificat Apple n'est configuré (voir build/afterPack.js).
+afterPack: build/afterPack.js
 
 linux:
   target:
     - AppImage
     - deb
   icon: build/icon.png
+  category: Game
 
 nsis:
   oneClick: true

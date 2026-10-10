@@ -1,0 +1,29 @@
+name: Mac test build (non publié)
+
+# Build macOS pour test interne : AUCUNE publication (--publish never), le DMG est
+# seulement déposé en artefact du run. Ne se déclenche que sur la branche test/mac-build.
+on:
+  push:
+    branches:
+      - test/mac-build
+
+jobs:
+  mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run package   # electron-vite build && electron-builder --publish never
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EarthKingdoms-Launcher-mac-test
+          path: dist/*.dmg
+          if-no-files-found: error
