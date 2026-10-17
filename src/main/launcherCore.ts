@@ -254,6 +254,12 @@ export function startLaunch(
     },
     JVM_ARGS:  jvmArgs,
     GAME_ARGS: [],
+    // mc-java-core passe sinon -Dlog4j.configurationFile=C:/…/client-1.12.xml : log4j
+    // prend « C: » pour un schéma d'URL, rejette la config (« Invalid URL ») et retombe
+    // sur sa config par défaut, console seule - aucun logs/latest.log n'est écrit sous
+    // Windows. La version Forge déclare d'ailleurs "logging": {} pour utiliser son
+    // propre log4j2.xml (logs/latest.log + logs/debug.log).
+    ignore_log4j: true,
     verify:    true,
     ignored:   [
       ...protectedEntries(),
@@ -263,6 +269,11 @@ export function startLaunch(
       'config',
       // Forge génère ce fichier lui-même, le serveur renvoie une 404 HTML
       'config/fml.toml',
+      // Caches écrits par des mods dans mods/ (dossier géré, donc nettoyé) : sans ça
+      // ils sont supprimés à chaque lancement et entièrement régénérés au démarrage.
+      'mods/mcef-libraries',   // binaires Chromium de MCEF (~280 Mo)
+      'mods/mcef-cache',       // cache navigateur de MCEF
+      'mods/.connector',       // jars remappés par Sinytra Connector
       // Fichiers/dossiers générés par le joueur - ne jamais supprimer
       'options.txt',
       'optionsof.txt',
