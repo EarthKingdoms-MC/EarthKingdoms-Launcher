@@ -112,6 +112,55 @@ const _nativeFetch = global.fetch
   return _nativeFetch(input, init)
 }
 
+/**
+ * Un JAR est une archive zip : il se termine par un enregistrement « End of Central
+ * Directory » (signature PK\x05\x06), placé au plus à 64 Ko + 22 octets de la fin.
+ * Un téléchargement interrompu (coupure réseau, antivirus, fermeture du launcher)
+ * laisse un fichier tronqué sans cet enregistrement.
+ */
+function isTruncatedJar(file: string): boolean {
+  let fd: number | null = null
+  try {
+    fd = fs.openSync(file, 'r')
+    const size = fs.fstatSync(fd).size
+    if (size < 22) return true
+    const tailLen = Math.min(size, 0xFFFF + 22)
+    const tail = Buffer.alloc(tailLen)
+    fs.readSync(fd, tail, 0, tailLen, size - tailLen)
+    return tail.lastIndexOf(Buffer.from([0x50, 0x4B, 0x05, 0x06])) === -1
+  } catch {
+    return false  // illisible (verrouillé…) : on laisse mc-java-core décider
+  } finally {
+    if (fd !== null) fs.closeSync(fd)
+  }
+}
+
+/**
+ * mc-java-core ne retélécharge une bibliothèque Forge que si elle est ABSENTE
+ * (aucune vérification de taille ni de hash). Un JAR tronqué reste donc en place
+ * indéfiniment et fait échouer le patcher Forge à chaque lancement
+ * (« Impossible de déterminer la classe principale dans le JAR »). On supprime
+ * ces fichiers avant le lancement pour qu'ils soient retéléchargés.
+ */
+function purgeTruncatedForgeLibraries(onLog: (line: string) => void): void {
+  const root = path.join(gameRoot(), 'loader', 'forge', 'libraries')
+  let files: string[]
+  try {
+    files = fs.readdirSync(root, { recursive: true }) as string[]
+  } catch {
+    return  // première installation : rien à vérifier
+  }
+  for (const rel of files) {
+    if (!rel.endsWith('.jar')) continue
+    const file = path.join(root, rel)
+    if (!isTruncatedJar(file)) continue
+    try {
+      fs.rmSync(file, { force: true })
+      onLog(`Bibliothèque Forge corrompue supprimée (sera retéléchargée) : ${rel}`)
+    } catch { /* ignore */ }
+  }
+}
+
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const MCCore = require('minecraft-java-core') as { Launch: new () => LaunchInstance }
 
@@ -298,6 +347,8 @@ export function startLaunch(
   // réglages graphiques du palier. Sur une instance déjà jouée on n'y touche
   // pas ici - c'est un geste explicite depuis les paramètres (perf:applyGameOptions).
   if (needsInitialGameOptions(instanceDir)) applyGameOptions(instanceDir, perfLevel, profile.gameOptions)
+
+  purgeTruncatedForgeLibraries(onLog)
 
   launchAuth = { token: account.token, isAdmin: account.isAdmin }
 
