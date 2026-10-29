@@ -12,6 +12,13 @@ const STEP_LABELS: Record<string, string> = {
     patch:    'Mise à jour de Minecraft...',
 }
 
+/** Pourcentage d'un événement de progression, -1 si indéterminé. */
+function progressPct(data: LaunchProgressEvent): number {
+    return (data.total != null && data.total > 0)
+        ? Math.min(100, Math.round(((data.task ?? 0) / data.total) * 100))
+        : -1
+}
+
 interface Props {
     canPlayDev: boolean
 }
@@ -34,14 +41,26 @@ export default function HomePage({ canPlayDev }: Props) {
     const maxPlayers  = status.online ? status.maxPlayers : 0
     const ping        = status.online ? status.ping       : 0
 
-    // Restaure l'état si un lancement est déjà en cours (navigation aller-retour)
+    // Restaure l'état si un lancement est déjà en cours (navigation aller-retour).
+    // Le lancement peut en être encore à l'autorisation ou aux téléchargements :
+    // on reprend sa phase réelle, sinon les événements de progression suivants
+    // seraient ignorés derrière un « Minecraft en cours » prématuré.
     useEffect(() => {
-        window.api.launchIsRunning().then(running => {
-            if (running) {
-                setLaunching(true)
+        window.api.launchStatus().then(s => {
+            if (!s.busy) return
+            setLaunching(true)
+            setLaunchDev(s.dev)
+            hadDownload.current = s.hadDownload
+            if (s.gameStarted) {
+                gameStarted.current = true
                 setProgress(-1)
                 setStepLabel('Minecraft en cours...')
-                gameStarted.current = true
+            } else if (s.lastProgress) {
+                setProgress(progressPct(s.lastProgress))
+                setStepLabel(STEP_LABELS[s.lastProgress.event] ?? 'Préparation...')
+            } else {
+                setProgress(-1)
+                setStepLabel('Initialisation...')
             }
         })
     }, [])
@@ -53,9 +72,7 @@ export default function HomePage({ canPlayDev }: Props) {
             if (gameStarted.current) return
             // Track si un téléchargement réel a eu lieu
             if (data.event !== 'check') hadDownload.current = true
-            const pct = (data.total != null && data.total > 0)
-                ? Math.min(100, Math.round(((data.task ?? 0) / data.total) * 100))
-                : -1
+            const pct = progressPct(data)
             setProgress(pct)
             // Indicateur "Fichiers vérifiés ✓" si check terminé sans download
             if (data.event === 'check' && pct === 100 && !hadDownload.current) {
