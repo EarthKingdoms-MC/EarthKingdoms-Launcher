@@ -12,6 +12,10 @@ const STEP_LABELS: Record<string, string> = {
     patch:    'Mise à jour de Minecraft...',
 }
 
+// Pendant la bêta, le bouton JOUER (prod) est caché : seul JOUER - BETA reste.
+// Le main refuse aussi le lancement prod (PROD_LAUNCH_ENABLED dans main/index.ts).
+const PROD_PLAY_ENABLED = false
+
 /** Pourcentage d'un événement de progression, -1 si indéterminé. */
 function progressPct(data: LaunchProgressEvent): number {
     return (data.total != null && data.total > 0)
@@ -186,19 +190,24 @@ export default function HomePage({ canPlayDev }: Props) {
 
                     {!launching ? (
                         <div className="home__play-buttons">
-                            <button
-                                className="btn-play"
-                                data-sound="play"
-                                onClick={() => handlePlay(false)}
-                                disabled={!status.online && !serverLoading}
-                            >
-                                <Play
-                                    size={18}
-                                    strokeWidth={3}
-                                    fill={status.online ? 'currentColor' : 'none'}
-                                />
-                                {serverLoading ? 'CHARGEMENT…' : status.online ? 'JOUER' : 'HORS LIGNE'}
-                            </button>
+                            {PROD_PLAY_ENABLED && (
+                                <button
+                                    className="btn-play"
+                                    data-sound="play"
+                                    onClick={() => handlePlay(false)}
+                                    disabled={!status.online && !serverLoading}
+                                >
+                                    <Play
+                                        size={18}
+                                        strokeWidth={3}
+                                        fill={status.online ? 'currentColor' : 'none'}
+                                    />
+                                    {serverLoading ? 'CHARGEMENT…' : status.online ? 'JOUER' : 'HORS LIGNE'}
+                                </button>
+                            )}
+                            {!PROD_PLAY_ENABLED && !canPlayDev && (
+                                <p className="home__motd">Le serveur est en bêta fermée : l'accès est réservé aux testeurs.</p>
+                            )}
                             {canPlayDev && (
                                 <button
                                     className="btn-play btn-play--dev"

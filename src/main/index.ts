@@ -761,7 +761,15 @@ ipcMain.handle('perf:applyGameOptions', async () => {
 })
 
 // ── Lancement Minecraft ───────────────────────────────────────────────────────
+// Pendant la bêta, seul le serveur BETA est jouable : le lancement prod est
+// refusé ici (le bouton est aussi caché côté renderer, voir HomePage).
+const PROD_LAUNCH_ENABLED = false
+
 ipcMain.handle('launch:start', async (_e, dev?: boolean) => {
+  if (dev !== true && !PROD_LAUNCH_ENABLED) {
+    return { ok: false, error: 'Le serveur est en bêta : seul le lancement BETA est disponible.' }
+  }
+
   // Compte prêt à l'emploi : renouvelé si son token approche de l'expiration, et
   // jamais déconnecté sur une simple panne réseau (voir authService.getAccount).
   const account = await getAccount()
