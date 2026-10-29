@@ -52,7 +52,7 @@ contextBridge.exposeInMainWorld('api', {
   // Lancement Minecraft
   launchStart:     (dev?: boolean) => ipcRenderer.invoke('launch:start', dev),
   launchStop:      () => ipcRenderer.send('launch:stop'),
-  launchIsRunning: () => ipcRenderer.invoke('launch:isRunning'),
+  launchStatus:    () => ipcRenderer.invoke('launch:status'),
 
   // Logs
   logsGetAll:  () => ipcRenderer.invoke('logs:getAll'),

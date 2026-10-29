@@ -30,11 +30,17 @@ function ekFetch(url: string, init?: Parameters<typeof net.fetch>[1]): ReturnTyp
   return net.fetch(url, { ...init, headers })
 }
 import { startLaunch, stopLaunch, isRunning, gameSession } from './launcherCore'
+import type { LaunchProgressEvent } from './launcherCore'
 import { autoUpdater } from 'electron-updater'
 import type { Account, LaunchProfile } from './store'
 
 let mainWindow: BrowserWindow | null = null
 let launchStartTime = 0
+// Phase du lancement en cours, relue par l'accueil quand il est remonté (changement
+// d'onglet pendant un téléchargement) : sans elle, il ne saurait pas distinguer un
+// téléchargement d'un jeu déjà démarré.
+let launchPhase: { dev: boolean; gameStarted: boolean; hadDownload: boolean; lastProgress: LaunchProgressEvent | null } =
+  { dev: false, gameStarted: false, hadDownload: false, lastProgress: null }
 
 const LIVEMAP_ORIGIN = 'https://earthkingdoms-mc.fr'
 
@@ -326,7 +332,7 @@ ipcMain.handle('auth:resetToken', async () => {
 ipcMain.handle('server:status', async () => {
   try {
     const start = Date.now()
-    const res   = await net.fetch('https://api.mcsrvstat.us/3/mc.earthkingdoms-mc.fr')
+    const res   = await net.fetch('https://api.mcsrvstat.us/3/mc.earthkingdoms-mc.fr:39000')
     const ping  = Date.now() - start
     if (!res.ok) return { online: false }
     const data = await res.json() as {
@@ -829,17 +835,23 @@ async function prepareAndLaunch(account: Account, dev: boolean): Promise<{ ok: b
   wlog(`Launch: démarrage - user=${current.username} profil=${profile.name} palier=${profile.perfLevel} ram=${profile.ram}Go java=${profile.javaPath ?? 'embarqué'}${dev ? ' [DEV]' : ''}`)
   logBuffer.length = 0  // vide le buffer au nouveau lancement
   launchStartTime = Date.now()
-  let gameStarted = false
+  launchPhase = { dev, gameStarted: false, hadDownload: false, lastProgress: null }
 
   const result = startLaunch(
     current,
     profile,
 
-    (progress) => mainWindow?.webContents.send('launch:progress', progress),
+    (progress) => {
+      if (progress.event !== 'speed') {
+        launchPhase.lastProgress = progress
+        if (progress.event !== 'check') launchPhase.hadDownload = true
+      }
+      mainWindow?.webContents.send('launch:progress', progress)
+    },
 
     (line) => {
-      if (!gameStarted) {
-        gameStarted = true
+      if (!launchPhase.gameStarted) {
+        launchPhase.gameStarted = true
         // Le process du jeu est détaché (voir launcherCore.ts) : il survit même
         // si le launcher se ferme complètement.
         if (store.get('closeOnLaunch') as boolean) { allowClose(); app.quit() }
@@ -882,7 +894,15 @@ async function prepareAndLaunch(account: Account, dev: boolean): Promise<{ ok: b
 
 ipcMain.on('launch:stop', () => stopLaunch())
 
-ipcMain.handle('launch:isRunning', () => isRunning())
+// busy : vrai dès la réservation, y compris pendant l'autorisation réseau
+// préalable (avant que isRunning() ne le devienne).
+ipcMain.handle('launch:status', () => ({
+  busy:         gameSession.isBusy(),
+  dev:          launchPhase.dev,
+  gameStarted:  launchPhase.gameStarted,
+  hadDownload:  launchPhase.hadDownload,
+  lastProgress: launchPhase.lastProgress,
+}))
 
 // ── Maintenance : force le retéléchargement des mods ──────────────────────────
 // Ne supprime QUE le dossier mods/ de chaque instance connue (jamais saves/,

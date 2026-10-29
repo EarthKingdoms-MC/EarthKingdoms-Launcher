@@ -38,6 +38,15 @@ export interface LaunchProgressEvent {
     speed?: number
 }
 
+/** État d'un lancement en cours, pour restaurer l'accueil après un changement d'onglet. */
+export interface LaunchStatus {
+    busy:         boolean
+    dev:          boolean
+    gameStarted:  boolean
+    hadDownload:  boolean
+    lastProgress: LaunchProgressEvent | null
+}
+
 export interface SkinHistoryItem {
     id:         string | number
     skin_url:   string
@@ -153,7 +162,7 @@ declare global {
 
             launchStart(dev?: boolean): Promise<{ ok: boolean; error?: string }>
             launchStop(): void
-            launchIsRunning(): Promise<boolean>
+            launchStatus(): Promise<LaunchStatus>
 
             logsGetAll(): Promise<string[]>
             logsOpenDir(): Promise<void>

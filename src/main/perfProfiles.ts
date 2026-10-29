@@ -173,9 +173,10 @@ export function recommendedRam(level: PerfLevel, totalRamGB: number): number {
  * côté JVM, on ne cherche pas à inventer au-delà.
  *
  * Deux écarts délibérés selon le palier :
- *  - AlwaysPreTouch réserve physiquement tout le tas au démarrage : gain de
- *    régularité sur une machine confortable, mais catastrophique sur une
- *    machine juste en RAM → retiré au palier Faible.
+ *  - AlwaysPreTouch n'est plus utilisé : il touche toutes les pages du tas AVANT
+ *    le démarrage de Forge (plusieurs secondes avec 8 à 12 Go, et le tas initial
+ *    est presque égal au maximum), ce qui allongeait l'écran de chargement Forge
+ *    pour un gain de régularité marginal côté client.
  *  - UseStringDeduplication rend de la mémoire au prix d'un peu de CPU pendant
  *    les GC : intéressant seulement quand la RAM est la ressource rare.
  */
@@ -216,7 +217,6 @@ export function gcArgs(level: PerfLevel, maxRamMB: number): string[] {
   }
 
   if (level === 'low') args.push('-XX:+UseStringDeduplication')
-  else                 args.push('-XX:+AlwaysPreTouch')
 
   return args
 }
