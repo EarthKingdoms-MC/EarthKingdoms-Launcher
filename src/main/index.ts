@@ -332,7 +332,7 @@ ipcMain.handle('auth:resetToken', async () => {
 ipcMain.handle('server:status', async () => {
   try {
     const start = Date.now()
-    const res   = await net.fetch('https://api.mcsrvstat.us/3/mc.earthkingdoms-mc.fr')
+    const res   = await net.fetch('https://api.mcsrvstat.us/3/mc.earthkingdoms-mc.fr:39000')
     const ping  = Date.now() - start
     if (!res.ok) return { online: false }
     const data = await res.json() as {
