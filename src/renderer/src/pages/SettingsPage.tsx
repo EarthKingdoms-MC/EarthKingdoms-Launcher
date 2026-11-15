@@ -506,7 +506,7 @@ export default function SettingsPage({
             if (res.available) {
                 onNotify({
                     type: 'success',
-                    message: 'Mise à jour trouvée — téléchargement en cours…',
+                    message: 'Mise à jour trouvée - téléchargement en cours…',
                 })
             } else if (res.macUpdate && res.latestVersion) {
                 onNotify({
